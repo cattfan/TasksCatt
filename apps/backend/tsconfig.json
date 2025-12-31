@@ -8,6 +8,7 @@
         "baseUrl": ".",
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true,
+        "strictPropertyInitialization": false,
         "paths": {
             "@/*": [
                 "./src/*"
@@ -21,11 +22,11 @@
         }
     },
     "include": [
-        "src/**/*",
-        "prisma/**/*"
+        "src/**/*"
     ],
     "exclude": [
         "node_modules",
-        "dist"
+        "dist",
+        "prisma"
     ]
 }

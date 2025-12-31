@@ -4,48 +4,72 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    /* TasksCatt Design System - Light Theme */
+    --background: 249 250 251; /* #f9fafb */
+    --foreground: 17 24 39; /* #111827 */
+    
+    --card: 255 255 255;
+    --card-foreground: 17 24 39;
+    
+    --popover: 255 255 255;
+    --popover-foreground: 17 24 39;
+    
+    /* Primary: Indigo */
+    --primary: 99 102 241; /* #6366f1 */
+    --primary-foreground: 255 255 255;
+    
+    --secondary: 243 244 246; /* #f3f4f6 */
+    --secondary-foreground: 55 65 81;
+    
+    --muted: 243 244 246;
+    --muted-foreground: 107 114 128; /* #6b7280 */
+    
+    --accent: 238 242 255; /* #eef2ff */
+    --accent-foreground: 79 70 229;
+    
+    /* Status Colors */
+    --success: 34 197 94; /* #22c55e */
+    --warning: 245 158 11; /* #f59e0b */
+    --danger: 239 68 68; /* #ef4444 */
+    
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
+    
+    --border: 229 231 235; /* #e5e7eb */
+    --input: 229 231 235;
+    --ring: 99 102 241;
+    
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --background: 17 24 39;
+    --foreground: 249 250 251;
+    
+    --card: 31 41 55;
+    --card-foreground: 249 250 251;
+    
+    --popover: 31 41 55;
+    --popover-foreground: 249 250 251;
+    
+    --primary: 129 140 248;
+    --primary-foreground: 17 24 39;
+    
+    --secondary: 55 65 81;
+    --secondary-foreground: 249 250 251;
+    
+    --muted: 55 65 81;
+    --muted-foreground: 156 163 175;
+    
+    --accent: 55 65 81;
+    --accent-foreground: 165 180 252;
+    
+    --destructive: 220 38 38;
+    --destructive-foreground: 255 255 255;
+    
+    --border: 55 65 81;
+    --input: 55 65 81;
+    --ring: 129 140 248;
   }
 }
 
@@ -54,14 +78,24 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-/* Custom scrollbar styles */
+/* Grid Background Pattern */
+.bg-grid-pattern {
+  background-image: 
+    linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Custom scrollbar */
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
+    scrollbar-color: rgb(var(--muted-foreground) / 0.3) transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -74,15 +108,14 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--muted-foreground) / 0.3);
+    background-color: rgb(var(--muted-foreground) / 0.3);
     border-radius: 3px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--muted-foreground) / 0.5);
+    background-color: rgb(var(--muted-foreground) / 0.5);
   }
 
-  /* Hide scrollbar but keep functionality */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -93,18 +126,106 @@
   }
 }
 
-/* Kanban board specific styles */
+/* Kanban Components */
 @layer components {
   .kanban-column {
-    @apply flex flex-col bg-muted/50 rounded-lg p-3 min-w-[280px] max-w-[320px];
+    @apply flex flex-col bg-gray-50 rounded-xl p-3 min-w-[300px] max-w-[320px];
   }
 
   .kanban-task {
-    @apply bg-card rounded-md border shadow-sm p-3 cursor-grab active:cursor-grabbing;
-    @apply hover:shadow-md transition-shadow duration-200;
+    @apply bg-white rounded-lg border border-gray-200 shadow-sm p-4 cursor-grab active:cursor-grabbing;
+    @apply hover:shadow-md hover:border-gray-300 transition-all duration-200;
   }
 
   .kanban-task.dragging {
-    @apply opacity-50 ring-2 ring-primary;
+    @apply opacity-60 ring-2 ring-indigo-500 rotate-2 scale-105;
+  }
+}
+
+/* Priority Badges */
+@layer components {
+  .badge-low {
+    @apply bg-green-100 text-green-700 border-green-200;
+  }
+  .badge-medium {
+    @apply bg-amber-100 text-amber-700 border-amber-200;
+  }
+  .badge-high {
+    @apply bg-orange-100 text-orange-700 border-orange-200;
+  }
+  .badge-critical {
+    @apply bg-red-100 text-red-700 border-red-200;
+  }
+}
+
+/* Status Badges */
+@layer components {
+  .status-active {
+    @apply bg-green-100 text-green-700;
+  }
+  .status-pending {
+    @apply bg-amber-100 text-amber-700;
+  }
+  .status-blocked {
+    @apply bg-red-100 text-red-700;
+  }
+  .status-completed {
+    @apply bg-indigo-100 text-indigo-700;
+  }
+}
+
+/* Input Focus Styles */
+@layer components {
+  .input-field {
+    @apply w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900;
+    @apply placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent;
+    @apply transition-all duration-200;
+  }
+  
+  .input-with-icon {
+    @apply pl-12;
+  }
+}
+
+/* Button Styles */
+@layer components {
+  .btn-primary {
+    @apply px-6 py-3 bg-indigo-500 text-white font-medium rounded-xl;
+    @apply hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200;
+  }
+  
+  .btn-secondary {
+    @apply px-6 py-3 bg-white text-gray-700 font-medium rounded-xl border border-gray-200;
+    @apply hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200;
+  }
+  
+  .btn-ghost {
+    @apply px-4 py-2 text-gray-600 font-medium rounded-lg;
+    @apply hover:bg-gray-100 focus:outline-none transition-all duration-200;
+  }
+}
+
+/* Card Styles */
+@layer components {
+  .card {
+    @apply bg-white rounded-xl border border-gray-200 shadow-sm;
+  }
+  
+  .card-hover {
+    @apply hover:shadow-md hover:border-gray-300 transition-all duration-200;
+  }
+}
+
+/* Sidebar Styles */
+@layer components {
+  .sidebar-item {
+    @apply flex items-center gap-3 px-4 py-3 text-gray-600 rounded-xl;
+    @apply hover:bg-gray-100 hover:text-gray-900 transition-all duration-200;
+  }
+  
+  .sidebar-item-active {
+    @apply bg-indigo-50 text-indigo-600 font-medium;
   }
 }
