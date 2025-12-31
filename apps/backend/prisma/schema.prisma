@@ -16,20 +16,24 @@ datasource db {
 // USER
 // =============================================
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  fullName     String   @map("full_name")
-  avatarUrl    String?  @map("avatar_url")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  fullName     String    @map("full_name")
+  avatarUrl    String?   @map("avatar_url")
+  isAdmin      Boolean   @default(false) @map("is_admin")
+  isBlocked    Boolean   @default(false) @map("is_blocked")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
 
   // Relations
-  ownedProjects   Project[]       @relation("ProjectOwner")
-  memberships     ProjectMember[]
-  createdTasks    Task[]          @relation("TaskCreator")
-  assignedTasks   Task[]          @relation("TaskAssignee")
+  ownedProjects  Project[]       @relation("ProjectOwner")
+  memberships    ProjectMember[]
+  createdTasks   Task[]          @relation("TaskCreator")
+  assignedTasks  Task[]          @relation("TaskAssignee")
+  comments       Comment[]
+  activityLogs   ActivityLog[]
 
   @@map("users")
 }
@@ -38,19 +42,20 @@ model User {
 // PROJECT
 // =============================================
 model Project {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   name        String
-  description String?
-  slug        String   @unique
-  ownerId     String   @map("owner_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  description String?   @db.Text
+  slug        String    @unique
+  ownerId     String    @map("owner_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
 
   // Relations
-  owner   User            @relation("ProjectOwner", fields: [ownerId], references: [id])
-  members ProjectMember[]
-  columns Column[]
+  owner        User            @relation("ProjectOwner", fields: [ownerId], references: [id])
+  members      ProjectMember[]
+  columns      Column[]
+  activityLogs ActivityLog[]
 
   @@index([ownerId])
   @@index([slug])
@@ -104,7 +109,7 @@ model Task {
   assigneeId  String?      @map("assignee_id")
   creatorId   String       @map("creator_id")
   title       String
-  description String?
+  description String?      @db.Text
   priority    TaskPriority @default(MEDIUM)
   position    Int          @default(0)
   dueDate     DateTime?    @map("due_date")
@@ -113,14 +118,57 @@ model Task {
   deletedAt   DateTime?    @map("deleted_at")
 
   // Relations
-  column   Column @relation(fields: [columnId], references: [id], onDelete: Cascade)
-  assignee User?  @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  creator  User   @relation("TaskCreator", fields: [creatorId], references: [id])
+  column   Column    @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  assignee User?     @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  creator  User      @relation("TaskCreator", fields: [creatorId], references: [id])
+  comments Comment[]
 
   @@index([columnId, position])
   @@index([assigneeId])
   @@index([dueDate])
   @@map("tasks")
+}
+
+// =============================================
+// COMMENT
+// =============================================
+model Comment {
+  id        String   @id @default(uuid())
+  taskId    String   @map("task_id")
+  authorId  String   @map("author_id")
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([authorId])
+  @@map("comments")
+}
+
+// =============================================
+// ACTIVITY LOG
+// =============================================
+model ActivityLog {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  userId    String   @map("user_id")
+  action    String   // e.g., "TASK_CREATED", "MEMBER_ADDED"
+  targetType String? @map("target_type") // e.g., "Task", "Column"
+  targetId  String?  @map("target_id")
+  details   Json?    // Additional context
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([userId])
+  @@map("activity_logs")
 }
 
 // =============================================

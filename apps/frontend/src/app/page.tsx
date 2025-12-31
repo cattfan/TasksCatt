@@ -1,157 +1,158 @@
-import { CheckCircle2, Kanban, Users, Zap } from 'lucide-react';
+import Link from 'next/link';
 
 export default function HomePage() {
     return (
-        <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-            {/* Hero Section */}
-            <div className="relative overflow-hidden">
-                {/* Background decorations */}
-                <div className="absolute inset-0 overflow-hidden">
-                    <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl" />
-                    <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl" />
-                </div>
-
-                <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
-                    {/* Header */}
-                    <nav className="flex items-center justify-between mb-16">
-                        <div className="flex items-center gap-2">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                                <Kanban className="w-6 h-6 text-white" />
-                            </div>
-                            <span className="text-2xl font-bold text-white">TasksCatt</span>
+        <div className="min-h-screen bg-gray-50 bg-grid-pattern">
+            {/* Navigation */}
+            <nav className="fixed top-0 inset-x-0 bg-white/80 backdrop-blur-lg border-b border-gray-200 z-50">
+                <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="w-9 h-9 bg-indigo-500 rounded-xl flex items-center justify-center">
+                            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <a
-                                href="/login"
-                                className="text-slate-300 hover:text-white transition-colors"
-                            >
-                                Đăng nhập
-                            </a>
-                            <a
-                                href="/register"
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-                            >
-                                Bắt đầu miễn phí
-                            </a>
-                        </div>
-                    </nav>
-
-                    {/* Hero Content */}
-                    <div className="text-center mb-16">
-                        <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
-                            Quản lý dự án
-                            <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                                {' '}hiện đại{' '}
-                            </span>
-                            và hiệu quả
-                        </h1>
-                        <p className="text-xl text-slate-400 max-w-2xl mx-auto mb-8">
-                            TasksCatt giúp team của bạn tổ chức công việc với Kanban board trực quan,
-                            cập nhật real-time và giao diện thân thiện.
-                        </p>
-                        <div className="flex items-center justify-center gap-4">
-                            <a
-                                href="/register"
-                                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 rounded-lg font-medium transition-all transform hover:scale-105"
-                            >
-                                Tạo tài khoản miễn phí
-                            </a>
-                            <a
-                                href="#features"
-                                className="border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 px-8 py-3 rounded-lg font-medium transition-colors"
-                            >
-                                Tìm hiểu thêm
-                            </a>
-                        </div>
+                        <span className="text-xl font-bold text-gray-900">TasksCatt</span>
                     </div>
 
-                    {/* Preview Image Placeholder */}
-                    <div className="relative mx-auto max-w-5xl">
-                        <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl p-4 shadow-2xl">
-                            <div className="bg-slate-900 rounded-lg p-6 min-h-[400px] flex items-center justify-center">
-                                <div className="text-center">
-                                    <Kanban className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                                    <p className="text-slate-500 text-lg">
-                                        Kanban Board Preview
-                                    </p>
-                                    <p className="text-slate-600 text-sm mt-2">
-                                        (Sẽ được thêm ở Giai đoạn 4)
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
+                    <div className="flex items-center gap-4">
+                        <Link href="/login" className="text-gray-600 hover:text-gray-900 font-medium transition">
+                            Sign in
+                        </Link>
+                        <Link href="/register" className="btn-primary">
+                            Get started free
+                        </Link>
                     </div>
                 </div>
-            </div>
+            </nav>
 
-            {/* Features Section */}
-            <section id="features" className="py-24 bg-slate-900/50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Hero */}
+            <section className="pt-32 pb-20 px-6">
+                <div className="max-w-4xl mx-auto text-center">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-sm font-medium mb-6">
+                        <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
+                        Now in public beta
+                    </div>
+
+                    <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+                        Manage your projects
+                        <br />
+                        <span className="text-indigo-500">with ease</span>
+                    </h1>
+
+                    <p className="text-xl text-gray-500 mb-8 max-w-2xl mx-auto">
+                        A powerful project management tool with Kanban boards, real-time collaboration,
+                        and everything you need to keep your team organized.
+                    </p>
+
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <Link href="/register" className="btn-primary text-lg px-8 py-4">
+                            Start for free
+                        </Link>
+                        <Link href="#features" className="btn-secondary text-lg px-8 py-4">
+                            Learn more
+                        </Link>
+                    </div>
+                </div>
+            </section>
+
+            {/* Features */}
+            <section id="features" className="py-20 px-6">
+                <div className="max-w-6xl mx-auto">
                     <div className="text-center mb-16">
-                        <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-                            Tính năng nổi bật
-                        </h2>
-                        <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-                            Mọi thứ bạn cần để quản lý dự án hiệu quả
+                        <h2 className="text-3xl font-bold text-gray-900 mb-4">Everything you need</h2>
+                        <p className="text-gray-500 max-w-xl mx-auto">
+                            Powerful features to help you manage projects, track tasks, and collaborate with your team.
                         </p>
                     </div>
 
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <div className="grid md:grid-cols-3 gap-8">
                         {[
                             {
-                                icon: Kanban,
-                                title: 'Kanban Board',
-                                description: 'Kéo thả task giữa các cột một cách trực quan',
+                                icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
+                                title: 'Kanban Boards',
+                                description: 'Visualize your workflow with drag-and-drop kanban boards. Customize columns and organize tasks your way.',
+                                color: 'bg-indigo-500'
                             },
                             {
-                                icon: Zap,
+                                icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
+                                title: 'Team Collaboration',
+                                description: 'Invite team members, assign tasks, and work together in real-time with instant updates.',
+                                color: 'bg-green-500'
+                            },
+                            {
+                                icon: 'M13 10V3L4 14h7v7l9-11h-7z',
                                 title: 'Real-time Sync',
-                                description: 'Cập nhật tức thì khi team thay đổi task',
+                                description: 'Changes sync instantly across all devices. Never miss an update from your team.',
+                                color: 'bg-amber-500'
                             },
                             {
-                                icon: Users,
-                                title: 'Collaboration',
-                                description: 'Mời thành viên và phân quyền linh hoạt',
+                                icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+                                title: 'Progress Tracking',
+                                description: 'Track progress with visual indicators, due dates, and priority levels for every task.',
+                                color: 'bg-pink-500'
                             },
                             {
-                                icon: CheckCircle2,
-                                title: 'Task Tracking',
-                                description: 'Theo dõi tiến độ với priority và deadline',
+                                icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z',
+                                title: 'Comments & Discussion',
+                                description: 'Communicate directly on tasks with comments, mentions, and file attachments.',
+                                color: 'bg-blue-500'
                             },
-                        ].map((feature, index) => (
-                            <div
-                                key={index}
-                                className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl p-6 hover:border-slate-600 transition-colors"
-                            >
-                                <div className="w-12 h-12 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg flex items-center justify-center mb-4">
-                                    <feature.icon className="w-6 h-6 text-blue-400" />
+                            {
+                                icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
+                                title: 'Secure & Private',
+                                description: 'Enterprise-grade security with role-based permissions to keep your data safe.',
+                                color: 'bg-purple-500'
+                            },
+                        ].map((feature) => (
+                            <div key={feature.title} className="card p-6 card-hover">
+                                <div className={`w-12 h-12 ${feature.color} rounded-xl flex items-center justify-center mb-4`}>
+                                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={feature.icon} />
+                                    </svg>
                                 </div>
-                                <h3 className="text-xl font-semibold text-white mb-2">
-                                    {feature.title}
-                                </h3>
-                                <p className="text-slate-400">{feature.description}</p>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
+                                <p className="text-gray-500 text-sm">{feature.description}</p>
                             </div>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* Footer */}
-            <footer className="border-t border-slate-800 py-8">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                                <Kanban className="w-4 h-4 text-white" />
-                            </div>
-                            <span className="text-lg font-semibold text-white">TasksCatt</span>
-                        </div>
-                        <p className="text-slate-500 text-sm">
-                            © 2024 TasksCatt. Đồ án Công nghệ Phần mềm.
+            {/* CTA */}
+            <section className="py-20 px-6">
+                <div className="max-w-4xl mx-auto">
+                    <div className="card p-12 text-center bg-gradient-to-r from-indigo-500 to-purple-600 border-none">
+                        <h2 className="text-3xl font-bold text-white mb-4">Ready to get started?</h2>
+                        <p className="text-indigo-100 mb-8 max-w-xl mx-auto">
+                            Join thousands of teams who are already using TasksCatt to manage their projects.
                         </p>
+                        <Link href="/register" className="inline-flex items-center gap-2 px-8 py-4 bg-white text-indigo-600 font-semibold rounded-xl hover:bg-gray-100 transition">
+                            Get started for free
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                        </Link>
                     </div>
                 </div>
+            </section>
+
+            {/* Footer */}
+            <footer className="border-t border-gray-200 py-12 px-6">
+                <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
+                            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <span className="font-bold text-gray-900">TasksCatt</span>
+                    </div>
+                    <p className="text-gray-500 text-sm">
+                        © 2024 TasksCatt. Built with NestJS + Next.js
+                    </p>
+                </div>
             </footer>
-        </main>
+        </div>
     );
 }
