@@ -68,11 +68,11 @@ export class CommentsService {
             throw new NotFoundException('Task không tồn tại');
         }
 
-        // Check membership (VIEWER+ can view)
+        // Check membership (MEMBER+ can view)
         await this.checkProjectRole(
             task.column.projectId,
             userId,
-            [MemberRole.VIEWER, MemberRole.MEMBER, MemberRole.ADMIN, MemberRole.OWNER],
+            [MemberRole.MEMBER, MemberRole.ADMIN, MemberRole.OWNER],
         );
 
         return this.prisma.comment.findMany({

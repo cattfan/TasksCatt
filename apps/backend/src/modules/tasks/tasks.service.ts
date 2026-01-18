@@ -4,12 +4,54 @@ import {
     ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EventsGateway } from '../../gateway/events.gateway';
 import { MemberRole, TaskPriority, Prisma } from '@prisma/client';
 import { CreateTaskDto, UpdateTaskDto, MoveTaskDto, ReorderTasksDto, SearchTasksDto } from './dto';
 
 @Injectable()
 export class TasksService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private eventsGateway: EventsGateway,
+    ) { }
+
+    // ==========================================
+    // MY TASKS
+    // ==========================================
+
+    /**
+     * Lấy tất cả tasks được assign cho user hiện tại
+     */
+    async getMyTasks(userId: string) {
+        return this.prisma.task.findMany({
+            where: {
+                assignees: { some: { id: userId } },
+                deletedAt: null,
+            },
+            include: {
+                assignees: {
+                    select: { id: true, fullName: true, avatarUrl: true },
+                },
+                creator: {
+                    select: { id: true, fullName: true },
+                },
+                column: {
+                    select: {
+                        id: true,
+                        name: true,
+                        color: true,
+                        project: {
+                            select: { id: true, name: true, slug: true },
+                        },
+                    },
+                },
+            },
+            orderBy: [
+                { dueDate: { sort: 'asc', nulls: 'last' } },
+                { priority: 'desc' },
+            ],
+        });
+    }
 
     // ==========================================
     // SEARCH & FILTER (UC30, UC31)
@@ -21,7 +63,6 @@ export class TasksService {
     async searchTasks(projectId: string, userId: string, filters: SearchTasksDto) {
         // Check membership
         await this.checkProjectPermission(projectId, userId, [
-            MemberRole.VIEWER,
             MemberRole.MEMBER,
             MemberRole.ADMIN,
             MemberRole.OWNER,
@@ -49,7 +90,7 @@ export class TasksService {
 
         // Filter by assignee
         if (filters.assigneeId) {
-            where.assigneeId = filters.assigneeId;
+            where.assignees = { some: { id: filters.assigneeId } };
         }
 
         // Filter by column
@@ -71,7 +112,7 @@ export class TasksService {
         return this.prisma.task.findMany({
             where,
             include: {
-                assignee: {
+                assignees: {
                     select: { id: true, fullName: true, avatarUrl: true },
                 },
                 creator: {
@@ -110,14 +151,17 @@ export class TasksService {
             MemberRole.MEMBER,
         ]);
 
-        // Kiểm tra assignee có phải member không
-        if (dto.assigneeId) {
-            const isMember = await this.prisma.projectMember.findFirst({
-                where: { projectId: column.projectId, userId: dto.assigneeId },
+        // Kiểm tra assignees có phải member không
+        if (dto.assigneeIds && dto.assigneeIds.length > 0) {
+            const count = await this.prisma.projectMember.count({
+                where: {
+                    projectId: column.projectId,
+                    userId: { in: dto.assigneeIds },
+                },
             });
 
-            if (!isMember) {
-                throw new ForbiddenException('Assignee không phải thành viên của project');
+            if (count !== dto.assigneeIds.length) {
+                throw new ForbiddenException('Một hoặc nhiều assignee không phải thành viên của project');
             }
         }
 
@@ -129,19 +173,21 @@ export class TasksService {
 
         const position = lastTask ? lastTask.position + 1 : 0;
 
-        return this.prisma.task.create({
+        const task = await this.prisma.task.create({
             data: {
                 title: dto.title,
                 description: dto.description,
                 priority: dto.priority || TaskPriority.MEDIUM,
                 columnId: dto.columnId,
                 creatorId: userId,
-                assigneeId: dto.assigneeId,
+                assignees: {
+                    connect: dto.assigneeIds?.map(id => ({ id })) || [],
+                },
                 dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
                 position,
             },
             include: {
-                assignee: {
+                assignees: {
                     select: { id: true, fullName: true, avatarUrl: true },
                 },
                 creator: {
@@ -152,6 +198,15 @@ export class TasksService {
                 },
             },
         });
+
+        // Emit realtime event
+        this.eventsGateway.emitTaskCreated(
+            column.projectId,
+            task as unknown as Record<string, unknown>,
+            { id: userId, fullName: task.creator.fullName || 'Unknown' }
+        );
+
+        return task;
     }
 
     /**
@@ -161,7 +216,7 @@ export class TasksService {
         const task = await this.prisma.task.findUnique({
             where: { id: taskId, deletedAt: null },
             include: {
-                assignee: {
+                assignees: {
                     select: { id: true, email: true, fullName: true, avatarUrl: true },
                 },
                 creator: {
@@ -186,7 +241,6 @@ export class TasksService {
             MemberRole.OWNER,
             MemberRole.ADMIN,
             MemberRole.MEMBER,
-            MemberRole.VIEWER,
         ]);
 
         return task;
@@ -198,7 +252,7 @@ export class TasksService {
     async update(taskId: string, userId: string, dto: UpdateTaskDto) {
         const task = await this.prisma.task.findUnique({
             where: { id: taskId, deletedAt: null },
-            include: { column: true },
+            include: { column: true, assignees: true },
         });
 
         if (!task) {
@@ -215,31 +269,37 @@ export class TasksService {
         if (
             membership.role === MemberRole.MEMBER &&
             task.creatorId !== userId &&
-            task.assigneeId !== userId
+            task.creatorId !== userId &&
+            !task.assignees.some(a => a.id === userId)
         ) {
             throw new ForbiddenException('Bạn chỉ có thể sửa task của mình');
         }
 
-        // Kiểm tra assignee mới (nếu có)
-        if (dto.assigneeId) {
-            const isMember = await this.prisma.projectMember.findFirst({
-                where: { projectId: task.column.projectId, userId: dto.assigneeId },
+        // Kiểm tra assignees mới (nếu có)
+        if (dto.assigneeIds && dto.assigneeIds.length > 0) {
+            const count = await this.prisma.projectMember.count({
+                where: {
+                    projectId: task.column.projectId,
+                    userId: { in: dto.assigneeIds },
+                },
             });
 
-            if (!isMember) {
-                throw new ForbiddenException('Assignee không phải thành viên của project');
+            if (count !== dto.assigneeIds.length) {
+                throw new ForbiddenException('Một hoặc nhiều assignee không phải thành viên của project');
             }
         }
 
-        return this.prisma.task.update({
+        const { assigneeIds, ...updateData } = dto;
+
+        const updatedTask = await this.prisma.task.update({
             where: { id: taskId },
             data: {
-                ...dto,
+                ...updateData,
                 dueDate: dto.dueDate === null ? null : dto.dueDate ? new Date(dto.dueDate) : undefined,
-                assigneeId: dto.assigneeId === null ? null : dto.assigneeId,
+                assignees: assigneeIds ? { set: assigneeIds.map(id => ({ id })) } : undefined,
             },
             include: {
-                assignee: {
+                assignees: {
                     select: { id: true, fullName: true, avatarUrl: true },
                 },
                 creator: {
@@ -250,6 +310,15 @@ export class TasksService {
                 },
             },
         });
+
+        // Emit realtime event
+        this.eventsGateway.emitTaskUpdated(
+            task.column.projectId,
+            updatedTask as unknown as Record<string, unknown>,
+            { id: userId, fullName: updatedTask.creator.fullName || 'Unknown' }
+        );
+
+        return updatedTask;
     }
 
     /**
@@ -276,10 +345,19 @@ export class TasksService {
             throw new ForbiddenException('Bạn chỉ có thể xóa task của mình');
         }
 
-        return this.prisma.task.update({
+        const deletedTask = await this.prisma.task.update({
             where: { id: taskId },
             data: { deletedAt: new Date() },
         });
+
+        // Emit realtime event
+        this.eventsGateway.emitTaskDeleted(
+            task.column.projectId,
+            taskId,
+            { id: userId, fullName: 'User' }
+        );
+
+        return deletedTask;
     }
 
     // ==========================================
@@ -380,7 +458,7 @@ export class TasksService {
                     position: newPosition,
                 },
                 include: {
-                    assignee: {
+                    assignees: {
                         select: { id: true, fullName: true, avatarUrl: true },
                     },
                     creator: {

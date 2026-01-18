@@ -4,6 +4,30 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { projectService, Project, ProjectMember } from '@/lib/services/project.service';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Settings,
+    Users,
+    AlertTriangle,
+    ChevronRight,
+    Loader2,
+    Trash2,
+    UserPlus,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export default function ProjectSettingsPage() {
     const params = useParams();
@@ -14,7 +38,6 @@ export default function ProjectSettingsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('general');
     const [isSaving, setIsSaving] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
 
     const [formData, setFormData] = useState({
         name: '',
@@ -38,6 +61,7 @@ export default function ProjectSettingsPage() {
             });
         } catch (error) {
             console.error('Failed to load project:', error);
+            toast.error('Không thể tải dự án');
             router.push('/dashboard/projects');
         } finally {
             setIsLoading(false);
@@ -49,14 +73,13 @@ export default function ProjectSettingsPage() {
         if (!project) return;
 
         setIsSaving(true);
-        setMessage({ type: '', text: '' });
 
         try {
             await projectService.update(project.id, formData);
-            setMessage({ type: 'success', text: 'Project updated successfully!' });
+            toast.success('Cập nhật dự án thành công!');
             loadProject();
         } catch {
-            setMessage({ type: 'error', text: 'Failed to update project' });
+            toast.error('Không thể cập nhật dự án');
         } finally {
             setIsSaving(false);
         }
@@ -67,65 +90,76 @@ export default function ProjectSettingsPage() {
         if (!project || !inviteEmail) return;
 
         setIsSaving(true);
-        setMessage({ type: '', text: '' });
 
         try {
             await projectService.addMember(project.id, inviteEmail, inviteRole);
-            setMessage({ type: 'success', text: 'Member invited successfully!' });
+            toast.success('Đã mời thành viên!');
             setInviteEmail('');
             loadProject();
         } catch {
-            setMessage({ type: 'error', text: 'Failed to invite member' });
+            toast.error('Không thể mời thành viên');
         } finally {
             setIsSaving(false);
         }
     };
 
     const handleRemoveMember = async (memberId: string) => {
-        if (!project || !confirm('Are you sure you want to remove this member?')) return;
+        if (!project || !confirm('Bạn có chắc muốn xóa thành viên này?')) return;
 
         try {
             await projectService.removeMember(project.id, memberId);
+            toast.success('Đã xóa thành viên');
             loadProject();
         } catch {
-            setMessage({ type: 'error', text: 'Failed to remove member' });
+            toast.error('Không thể xóa thành viên');
         }
     };
 
     const handleDeleteProject = async () => {
         if (!project) return;
 
-        const confirmed = confirm(`Are you sure you want to delete "${project.name}"? This action cannot be undone.`);
+        const confirmed = confirm(`Bạn có chắc muốn xóa "${project.name}"? Hành động này không thể hoàn tác.`);
         if (!confirmed) return;
 
         try {
             await projectService.delete(project.id);
+            toast.success('Đã xóa dự án');
             router.push('/dashboard/projects');
         } catch {
-            setMessage({ type: 'error', text: 'Failed to delete project' });
+            toast.error('Không thể xóa dự án');
         }
     };
 
-    const getRoleBadgeColor = (role: string) => {
-        const colors: Record<string, string> = {
-            OWNER: 'bg-purple-100 text-purple-700',
-            ADMIN: 'bg-indigo-100 text-indigo-700',
-            MEMBER: 'bg-green-100 text-green-700',
-            VIEWER: 'bg-gray-100 text-gray-700',
+    const getRoleBadge = (role: string): 'default' | 'secondary' | 'success' => {
+        const variants: Record<string, 'default' | 'secondary' | 'success'> = {
+            OWNER: 'default',
+            ADMIN: 'secondary',
+            MEMBER: 'success',
+            VIEWER: 'secondary',
         };
-        return colors[role] || colors.MEMBER;
+        return variants[role] || 'secondary';
+    };
+
+    const getRoleLabel = (role: string) => {
+        const labels: Record<string, string> = {
+            OWNER: 'Chủ sở hữu',
+            ADMIN: 'Quản trị',
+            MEMBER: 'Thành viên',
+            VIEWER: 'Xem',
+        };
+        return labels[role] || role;
     };
 
     const tabs = [
-        { id: 'general', label: 'General', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
-        { id: 'members', label: 'Members', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
-        { id: 'danger', label: 'Danger Zone', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
+        { id: 'general', label: 'Chung', icon: Settings },
+        { id: 'members', label: 'Thành viên', icon: Users },
+        { id: 'danger', label: 'Nguy hiểm', icon: AlertTriangle },
     ];
 
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                <Loader2 className="w-10 h-10 text-primary animate-spin" />
             </div>
         );
     }
@@ -133,190 +167,212 @@ export default function ProjectSettingsPage() {
     if (!project) return null;
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-                <Link href="/dashboard/projects" className="hover:text-indigo-500">Projects</Link>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                <Link href={`/dashboard/projects/${slug}`} className="hover:text-indigo-500">{project.name}</Link>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                <span className="text-gray-900">Settings</span>
+        <div className="max-w-4xl mx-auto space-y-6 w-full overflow-hidden">
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Link href="/dashboard/projects" className="hover:text-primary transition-colors">
+                    Dự án
+                </Link>
+                <ChevronRight className="w-4 h-4" />
+                <Link href={`/dashboard/projects/${slug}`} className="hover:text-primary transition-colors">
+                    {project.name}
+                </Link>
+                <ChevronRight className="w-4 h-4" />
+                <span className="text-foreground">Cài đặt</span>
             </div>
 
             <div>
-                <h1 className="text-2xl font-bold text-gray-900">Project Settings</h1>
-                <p className="text-gray-500 mt-1">Manage your project settings and team members</p>
+                <h1 className="text-2xl font-bold text-foreground">Cài đặt dự án</h1>
+                <p className="text-muted-foreground mt-1">
+                    Quản lý cài đặt và thành viên dự án
+                </p>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 border-b border-gray-200">
-                {tabs.map((tab) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition ${activeTab === tab.id
-                                ? tab.id === 'danger' ? 'border-red-500 text-red-600' : 'border-indigo-500 text-indigo-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
-                        </svg>
-                        {tab.label}
-                    </button>
-                ))}
+            <div className="flex gap-1 border-b">
+                {tabs.map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={cn(
+                                "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer",
+                                activeTab === tab.id
+                                    ? tab.id === 'danger'
+                                        ? "border-destructive text-destructive"
+                                        : "border-primary text-primary"
+                                    : "border-transparent text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            <Icon className="w-4 h-4" />
+                            {tab.label}
+                        </button>
+                    );
+                })}
             </div>
-
-            {/* Message */}
-            {message.text && (
-                <div className={`p-4 rounded-xl text-sm ${message.type === 'success'
-                        ? 'bg-green-50 text-green-700 border border-green-200'
-                        : 'bg-red-50 text-red-700 border border-red-200'
-                    }`}>
-                    {message.text}
-                </div>
-            )}
 
             {/* General Tab */}
             {activeTab === 'general' && (
-                <div className="card p-6">
-                    <form onSubmit={handleUpdateProject} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                required
-                                className="input-field"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                            <textarea
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                rows={4}
-                                className="input-field resize-none"
-                            />
-                        </div>
-                        <button type="submit" disabled={isSaving} className="btn-primary">
-                            {isSaving ? 'Saving...' : 'Save Changes'}
-                        </button>
-                    </form>
-                </div>
+                <Card className="border-0 shadow-sm">
+                    <CardContent className="p-6">
+                        <form onSubmit={handleUpdateProject} className="space-y-4">
+                            <div className="space-y-2">
+                                <label htmlFor="name" className="text-sm font-medium text-foreground">
+                                    Tên dự án
+                                </label>
+                                <Input
+                                    id="name"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label htmlFor="description" className="text-sm font-medium text-foreground">
+                                    Mô tả
+                                </label>
+                                <Textarea
+                                    id="description"
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                    rows={4}
+                                />
+                            </div>
+                            <Button type="submit" disabled={isSaving}>
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                        Đang lưu...
+                                    </>
+                                ) : (
+                                    'Lưu thay đổi'
+                                )}
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
             )}
 
             {/* Members Tab */}
             {activeTab === 'members' && (
                 <div className="space-y-6">
                     {/* Invite Form */}
-                    <div className="card p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Invite Member</h3>
-                        <form onSubmit={handleInviteMember} className="flex gap-3">
-                            <input
-                                type="email"
-                                value={inviteEmail}
-                                onChange={(e) => setInviteEmail(e.target.value)}
-                                placeholder="Email address"
-                                required
-                                className="input-field flex-1"
-                            />
-                            <select
-                                value={inviteRole}
-                                onChange={(e) => setInviteRole(e.target.value)}
-                                className="input-field w-40"
-                            >
-                                <option value="MEMBER">Member</option>
-                                <option value="ADMIN">Admin</option>
-                                <option value="VIEWER">Viewer</option>
-                            </select>
-                            <button type="submit" disabled={isSaving} className="btn-primary">
-                                Invite
-                            </button>
-                        </form>
-                    </div>
+                    <Card className="border-0 shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <UserPlus className="w-5 h-5" />
+                                Mời thành viên
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <form onSubmit={handleInviteMember} className="flex flex-col sm:flex-row gap-3">
+                                <Input
+                                    type="email"
+                                    value={inviteEmail}
+                                    onChange={(e) => setInviteEmail(e.target.value)}
+                                    placeholder="Địa chỉ email"
+                                    required
+                                    className="flex-1"
+                                />
+                                <Select value={inviteRole} onValueChange={setInviteRole}>
+                                    <SelectTrigger className="w-full sm:w-[150px]">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="MEMBER">Thành viên</SelectItem>
+                                        <SelectItem value="ADMIN">Quản trị</SelectItem>
+                                        <SelectItem value="VIEWER">Xem</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Button type="submit" disabled={isSaving} className="w-full sm:w-auto">
+                                    Mời
+                                </Button>
+                            </form>
+                        </CardContent>
+                    </Card>
 
                     {/* Members List */}
-                    <div className="card overflow-hidden">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b border-gray-200">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Member</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {project.members?.map((member: ProjectMember) => (
-                                    <tr key={member.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <img
-                                                    src={member.user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.userId}`}
-                                                    alt={member.user?.fullName}
-                                                    className="w-10 h-10 rounded-full bg-gray-200"
-                                                />
-                                                <div>
-                                                    <p className="font-medium text-gray-900">{member.user?.fullName}</p>
-                                                    <p className="text-sm text-gray-500">{member.user?.email}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(member.role)}`}>
-                                                {member.role}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                            {new Date(member.joinedAt).toLocaleDateString()}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            {member.role !== 'OWNER' && (
-                                                <button
-                                                    onClick={() => handleRemoveMember(member.id)}
-                                                    className="text-red-600 hover:text-red-700 text-sm font-medium"
-                                                >
-                                                    Remove
-                                                </button>
-                                            )}
-                                        </td>
+                    <Card className="border-0 shadow-sm overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-muted/50 border-b">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Thành viên</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Vai trò</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Ngày tham gia</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Thao tác</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {project.members?.map((member: ProjectMember) => (
+                                        <tr key={member.id} className="hover:bg-muted/30 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <Avatar className="w-10 h-10">
+                                                        <AvatarImage
+                                                            src={member.user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.userId}`}
+                                                        />
+                                                        <AvatarFallback>
+                                                            {member.user?.fullName?.charAt(0)}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <div>
+                                                        <p className="font-medium text-foreground">{member.user?.fullName}</p>
+                                                        <p className="text-sm text-muted-foreground">{member.user?.email}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <Badge variant={getRoleBadge(member.role)}>
+                                                    {getRoleLabel(member.role)}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-muted-foreground">
+                                                {new Date(member.joinedAt).toLocaleDateString('vi-VN')}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                {member.role !== 'OWNER' && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-destructive hover:text-destructive"
+                                                        onClick={() => handleRemoveMember(member.id)}
+                                                    >
+                                                        Xóa
+                                                    </Button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
                 </div>
             )}
 
             {/* Danger Zone Tab */}
             {activeTab === 'danger' && (
-                <div className="card p-6 border-red-200">
-                    <div className="flex items-start gap-4">
-                        <div className="p-3 bg-red-100 rounded-xl">
-                            <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                <Card className="border-destructive/50 shadow-sm">
+                    <CardContent className="p-6">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 bg-destructive/10 rounded-xl">
+                                <Trash2 className="w-6 h-6 text-destructive" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-lg font-semibold text-foreground">Xóa dự án</h3>
+                                <p className="text-muted-foreground mt-1 mb-4">
+                                    Khi bạn xóa dự án, tất cả công việc, cột và bình luận sẽ bị xóa vĩnh viễn. Không thể hoàn tác.
+                                </p>
+                                <Button variant="destructive" onClick={handleDeleteProject}>
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Xóa dự án này
+                                </Button>
+                            </div>
                         </div>
-                        <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-900">Delete Project</h3>
-                            <p className="text-gray-500 mt-1 mb-4">
-                                Once you delete a project, there is no going back. All tasks, columns, and comments will be permanently deleted.
-                            </p>
-                            <button
-                                onClick={handleDeleteProject}
-                                className="px-4 py-2 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition"
-                            >
-                                Delete this project
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
             )}
         </div>
     );

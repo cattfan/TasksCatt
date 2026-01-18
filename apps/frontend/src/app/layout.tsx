@@ -3,6 +3,10 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'] });
 
@@ -21,9 +25,18 @@ export default function RootLayout({
     return (
         <html lang="vi" suppressHydrationWarning>
             <body className={`${inter.className} min-h-screen antialiased`} suppressHydrationWarning>
-                <LanguageProvider>
-                    <AuthProvider>{children}</AuthProvider>
-                </LanguageProvider>
+                <ThemeProvider>
+                    <LanguageProvider>
+                        <AuthProvider>
+                            <TooltipProvider>
+                                <ErrorBoundary>
+                                    {children}
+                                </ErrorBoundary>
+                            </TooltipProvider>
+                            <Toaster richColors position="bottom-right" />
+                        </AuthProvider>
+                    </LanguageProvider>
+                </ThemeProvider>
             </body>
         </html>
     );

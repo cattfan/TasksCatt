@@ -3,6 +3,20 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { taskService, Task } from '@/lib/services/project.service';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/Skeleton';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Search, ClipboardList, ListTodo, Clock, CheckCircle2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export default function MyTasksPage() {
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -20,19 +34,20 @@ export default function MyTasksPage() {
             setTasks(data);
         } catch (error) {
             console.error('Failed to load tasks:', error);
+            toast.error('Không thể tải danh sách công việc');
         } finally {
             setIsLoading(false);
         }
     };
 
-    const getPriorityBadge = (priority: string) => {
-        const badges: Record<string, { class: string; label: string }> = {
-            LOW: { class: 'bg-green-100 text-green-700', label: 'Low' },
-            MEDIUM: { class: 'bg-amber-100 text-amber-700', label: 'Medium' },
-            HIGH: { class: 'bg-orange-100 text-orange-700', label: 'High' },
-            CRITICAL: { class: 'bg-red-100 text-red-700', label: 'Critical' },
+    const getPriorityBadge = (priority: string): { variant: 'default' | 'success' | 'warning' | 'destructive'; label: string } => {
+        const badges = {
+            LOW: { variant: 'success' as const, label: 'Thấp' },
+            MEDIUM: { variant: 'warning' as const, label: 'Trung bình' },
+            HIGH: { variant: 'destructive' as const, label: 'Cao' },
+            CRITICAL: { variant: 'destructive' as const, label: 'Khẩn cấp' },
         };
-        return badges[priority] || badges.MEDIUM;
+        return badges[priority as keyof typeof badges] || badges.MEDIUM;
     };
 
     const filteredTasks = tasks.filter(task => {
@@ -47,137 +62,149 @@ export default function MyTasksPage() {
         done: filteredTasks.filter(t => t.column?.name?.toLowerCase().includes('done') || t.column?.name?.toLowerCase().includes('complete')),
     };
 
+    const stats = [
+        { label: 'Tổng công việc', value: tasks.length, icon: ClipboardList, color: 'text-primary' },
+        { label: 'Chờ làm', value: tasksByStatus.todo.length, icon: ListTodo, color: 'text-slate-500' },
+        { label: 'Đang làm', value: tasksByStatus.inProgress.length, icon: Clock, color: 'text-amber-500' },
+        { label: 'Hoàn thành', value: tasksByStatus.done.length, icon: CheckCircle2, color: 'text-green-500' },
+    ];
+
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
-                    <p className="text-gray-500 mt-1">All tasks assigned to you across projects</p>
-                </div>
+            <div>
+                <h1 className="text-2xl font-bold text-foreground">Công việc của tôi</h1>
+                <p className="text-muted-foreground mt-1">Tất cả công việc được giao cho bạn</p>
             </div>
 
             {/* Filters */}
             <div className="flex items-center gap-4">
                 <div className="relative flex-1 max-w-md">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
-                    <input
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
                         type="text"
-                        placeholder="Search tasks..."
+                        placeholder="Tìm kiếm công việc..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm"
+                        className="pl-10"
                     />
                 </div>
 
-                <select
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm"
-                >
-                    <option value="all">All Priorities</option>
-                    <option value="CRITICAL">Critical</option>
-                    <option value="HIGH">High</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="LOW">Low</option>
-                </select>
+                <Select value={filter} onValueChange={setFilter}>
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Độ ưu tiên" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Tất cả</SelectItem>
+                        <SelectItem value="CRITICAL">Khẩn cấp</SelectItem>
+                        <SelectItem value="HIGH">Cao</SelectItem>
+                        <SelectItem value="MEDIUM">Trung bình</SelectItem>
+                        <SelectItem value="LOW">Thấp</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {[
-                    { label: 'Total Tasks', value: tasks.length, color: 'bg-indigo-500' },
-                    { label: 'To Do', value: tasksByStatus.todo.length, color: 'bg-gray-500' },
-                    { label: 'In Progress', value: tasksByStatus.inProgress.length, color: 'bg-amber-500' },
-                    { label: 'Done', value: tasksByStatus.done.length, color: 'bg-green-500' },
-                ].map((stat) => (
-                    <div key={stat.label} className="card p-4">
-                        <div className="flex items-center gap-3">
-                            <div className={`w-3 h-3 rounded-full ${stat.color}`} />
-                            <span className="text-gray-500 text-sm">{stat.label}</span>
-                        </div>
-                        <p className="text-2xl font-bold text-gray-900 mt-2">{stat.value}</p>
-                    </div>
-                ))}
+                {stats.map((stat) => {
+                    const Icon = stat.icon;
+                    return (
+                        <Card key={stat.label} className="border-0 shadow-sm">
+                            <CardContent className="p-4">
+                                <div className="flex items-center gap-3">
+                                    <Icon className={cn("w-5 h-5", stat.color)} />
+                                    <span className="text-muted-foreground text-sm">{stat.label}</span>
+                                </div>
+                                <p className="text-2xl font-bold text-foreground mt-2">{stat.value}</p>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
             </div>
 
             {/* Tasks List */}
             {isLoading ? (
                 <div className="space-y-3">
                     {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="card p-4 animate-pulse">
-                            <div className="flex items-center gap-4">
-                                <div className="w-16 h-6 bg-gray-200 rounded" />
-                                <div className="flex-1 h-5 bg-gray-200 rounded" />
-                                <div className="w-24 h-6 bg-gray-200 rounded" />
-                            </div>
-                        </div>
+                        <Card key={i} className="border-0 shadow-sm">
+                            <CardContent className="p-4">
+                                <div className="flex items-center gap-4">
+                                    <Skeleton className="w-16 h-6" />
+                                    <Skeleton className="flex-1 h-5" />
+                                    <Skeleton className="w-24 h-6" />
+                                </div>
+                            </CardContent>
+                        </Card>
                     ))}
                 </div>
             ) : filteredTasks.length === 0 ? (
-                <div className="card p-12 text-center">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No tasks found</h3>
-                    <p className="text-gray-500">Tasks assigned to you will appear here</p>
-                </div>
+                <Card className="border-0 shadow-sm">
+                    <CardContent className="p-12 text-center">
+                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                            <ClipboardList className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-foreground mb-2">
+                            Không tìm thấy công việc
+                        </h3>
+                        <p className="text-muted-foreground">
+                            Công việc được giao cho bạn sẽ xuất hiện ở đây
+                        </p>
+                    </CardContent>
+                </Card>
             ) : (
-                <div className="card overflow-hidden">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Task</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Project</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due Date</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {filteredTasks.map((task) => {
-                                const badge = getPriorityBadge(task.priority);
-                                return (
-                                    <tr key={task.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4">
-                                            <Link
-                                                href={`/dashboard/projects/${task.column?.project?.slug || 'unknown'}?task=${task.id}`}
-                                                className="font-medium text-gray-900 hover:text-indigo-600"
-                                            >
-                                                {task.title}
-                                            </Link>
-                                            {task.description && (
-                                                <p className="text-sm text-gray-500 truncate max-w-md">{task.description}</p>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                            {task.column?.project?.name || 'Unknown'}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
-                                                {task.column?.name || 'Unknown'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${badge.class}`}>
-                                                {badge.label}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '-'}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                <Card className="border-0 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-muted/50 border-b">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Công việc</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Dự án</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Trạng thái</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Độ ưu tiên</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Hạn</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                                {filteredTasks.map((task) => {
+                                    const badge = getPriorityBadge(task.priority);
+                                    return (
+                                        <tr key={task.id} className="hover:bg-muted/30 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <Link
+                                                    href={`/dashboard/projects/${task.column?.project?.slug || 'unknown'}?task=${task.id}`}
+                                                    className="font-medium text-foreground hover:text-primary transition-colors"
+                                                >
+                                                    {task.title}
+                                                </Link>
+                                                {task.description && (
+                                                    <p className="text-sm text-muted-foreground truncate max-w-md">
+                                                        {task.description}
+                                                    </p>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-muted-foreground">
+                                                {task.column?.project?.name || 'Unknown'}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <Badge variant="outline">
+                                                    {task.column?.name || 'Unknown'}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <Badge variant={badge.variant}>
+                                                    {badge.label}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-muted-foreground">
+                                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : '-'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
             )}
         </div>
     );

@@ -9,6 +9,7 @@ import {
     UseGuards,
     Request,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ProjectsService } from './projects.service';
 import {
     CreateProjectDto,
@@ -21,6 +22,8 @@ import {
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@ApiTags('/api/projects')
+@ApiBearerAuth()
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
 export class ProjectsController {
@@ -30,37 +33,25 @@ export class ProjectsController {
     // PROJECT ENDPOINTS
     // ==========================================
 
-    /**
-     * POST /api/projects
-     * Tạo project mới
-     */
+    @ApiOperation({ summary: 'POST /api/projects' })
     @Post()
     async create(@Request() req: any, @Body() dto: CreateProjectDto) {
         return this.projectsService.create(req.user.id, dto);
     }
 
-    /**
-     * GET /api/projects
-     * Lấy danh sách projects của user
-     */
+    @ApiOperation({ summary: 'GET /api/projects' })
     @Get()
     async findAll(@Request() req: any) {
         return this.projectsService.findAllByUser(req.user.id);
     }
 
-    /**
-     * GET /api/projects/:slug
-     * Lấy chi tiết project theo slug
-     */
+    @ApiOperation({ summary: 'GET /api/projects/:slug' })
     @Get(':slug')
     async findBySlug(@Param('slug') slug: string, @Request() req: any) {
         return this.projectsService.findBySlug(slug, req.user.id);
     }
 
-    /**
-     * PATCH /api/projects/:id
-     * Cập nhật project
-     */
+    @ApiOperation({ summary: 'PATCH /api/projects/:id' })
     @Patch(':id')
     async update(
         @Param('id') id: string,
@@ -70,10 +61,7 @@ export class ProjectsController {
         return this.projectsService.update(id, req.user.id, dto);
     }
 
-    /**
-     * DELETE /api/projects/:id
-     * Xóa project
-     */
+    @ApiOperation({ summary: 'DELETE /api/projects/:id' })
     @Delete(':id')
     async delete(@Param('id') id: string, @Request() req: any) {
         await this.projectsService.delete(id, req.user.id);
@@ -84,10 +72,7 @@ export class ProjectsController {
     // MEMBER ENDPOINTS
     // ==========================================
 
-    /**
-     * POST /api/projects/:id/members
-     * Thêm member vào project
-     */
+    @ApiOperation({ summary: 'POST /api/projects/:id/members' })
     @Post(':id/members')
     async addMember(
         @Param('id') projectId: string,
@@ -97,10 +82,7 @@ export class ProjectsController {
         return this.projectsService.addMember(projectId, req.user.id, dto);
     }
 
-    /**
-     * PATCH /api/projects/:id/members/:memberId
-     * Cập nhật role của member
-     */
+    @ApiOperation({ summary: 'PATCH /api/projects/:id/members/:memberId' })
     @Patch(':id/members/:memberId')
     async updateMemberRole(
         @Param('id') projectId: string,
@@ -111,10 +93,7 @@ export class ProjectsController {
         return this.projectsService.updateMemberRole(projectId, memberId, req.user.id, dto);
     }
 
-    /**
-     * DELETE /api/projects/:id/members/:memberId
-     * Xóa member khỏi project
-     */
+    @ApiOperation({ summary: 'DELETE /api/projects/:id/members/:memberId' })
     @Delete(':id/members/:memberId')
     async removeMember(
         @Param('id') projectId: string,
@@ -129,10 +108,7 @@ export class ProjectsController {
     // COLUMN ENDPOINTS
     // ==========================================
 
-    /**
-     * POST /api/projects/:id/columns
-     * Thêm column mới
-     */
+    @ApiOperation({ summary: 'POST /api/projects/:id/columns' })
     @Post(':id/columns')
     async addColumn(
         @Param('id') projectId: string,
@@ -142,10 +118,7 @@ export class ProjectsController {
         return this.projectsService.addColumn(projectId, req.user.id, dto);
     }
 
-    /**
-     * PATCH /api/projects/:id/columns/:columnId
-     * Cập nhật column
-     */
+    @ApiOperation({ summary: 'PATCH /api/projects/:id/columns/:columnId' })
     @Patch(':id/columns/:columnId')
     async updateColumn(
         @Param('id') projectId: string,
@@ -156,10 +129,7 @@ export class ProjectsController {
         return this.projectsService.updateColumn(projectId, columnId, req.user.id, dto);
     }
 
-    /**
-     * DELETE /api/projects/:id/columns/:columnId
-     * Xóa column
-     */
+    @ApiOperation({ summary: 'DELETE /api/projects/:id/columns/:columnId' })
     @Delete(':id/columns/:columnId')
     async deleteColumn(
         @Param('id') projectId: string,
@@ -170,10 +140,7 @@ export class ProjectsController {
         return { message: 'Đã xóa cột' };
     }
 
-    /**
-     * POST /api/projects/:id/columns/reorder
-     * Sắp xếp lại columns
-     */
+    @ApiOperation({ summary: 'POST /api/projects/:id/columns/reorder' })
     @Post(':id/columns/reorder')
     async reorderColumns(
         @Param('id') projectId: string,
@@ -182,4 +149,15 @@ export class ProjectsController {
     ) {
         return this.projectsService.reorderColumns(projectId, req.user.id, dto);
     }
+
+    // ==========================================
+    // PROGRESS REPORT
+    // ==========================================
+
+    @ApiOperation({ summary: 'GET /api/projects/:id/progress - Báo cáo tiến độ dự án' })
+    @Get(':id/progress')
+    async getProgress(@Param('id') projectId: string, @Request() req: any) {
+        return this.projectsService.getProgress(projectId, req.user.id);
+    }
 }
+

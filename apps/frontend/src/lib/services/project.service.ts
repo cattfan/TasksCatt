@@ -50,11 +50,12 @@ export interface Task {
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
     position: number;
     dueDate: string | null;
-    assignee?: {
+    commentsCount?: number;
+    assignees: {
         id: string;
         fullName: string;
         avatarUrl: string | null;
-    };
+    }[];
     creator?: {
         id: string;
         fullName: string;
@@ -78,7 +79,7 @@ export interface CreateTaskDto {
     description?: string;
     priority?: Task['priority'];
     columnId: string;
-    assigneeId?: string;
+    assigneeIds?: string[];
     dueDate?: string;
 }
 

@@ -3,6 +3,33 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { projectService, Project } from '@/lib/services/project.service';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/Skeleton';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+    Plus,
+    Search,
+    Filter,
+    FolderKanban,
+    Clock,
+    AlertCircle,
+    Loader2,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export default function ProjectsPage() {
     const [projects, setProjects] = useState<Project[]>([]);
@@ -23,6 +50,7 @@ export default function ProjectsPage() {
             setProjects(data);
         } catch (error) {
             console.error('Failed to load projects:', error);
+            toast.error('Không thể tải danh sách dự án');
         } finally {
             setIsLoading(false);
         }
@@ -38,8 +66,11 @@ export default function ProjectsPage() {
             setProjects([project, ...projects]);
             setShowCreateModal(false);
             setNewProject({ name: '', description: '' });
+            toast.success('Tạo dự án thành công!');
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Failed to create project');
+            const message = err.response?.data?.message || 'Không thể tạo dự án';
+            setError(message);
+            toast.error(message);
         } finally {
             setIsCreating(false);
         }
@@ -50,11 +81,11 @@ export default function ProjectsPage() {
         p.description?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const categoryColors: Record<string, { border: string; badge: string }> = {
-        'Design': { border: 'border-l-pink-500', badge: 'bg-pink-100 text-pink-700' },
-        'Development': { border: 'border-l-blue-500', badge: 'bg-blue-100 text-blue-700' },
-        'Marketing': { border: 'border-l-green-500', badge: 'bg-green-100 text-green-700' },
-        'Research': { border: 'border-l-purple-500', badge: 'bg-purple-100 text-purple-700' },
+    const categoryColors: Record<string, { border: string; bg: string; text: string }> = {
+        'Design': { border: 'border-l-pink-500', bg: 'bg-pink-50 dark:bg-pink-950/30', text: 'text-pink-600' },
+        'Development': { border: 'border-l-blue-500', bg: 'bg-blue-50 dark:bg-blue-950/30', text: 'text-blue-600' },
+        'Marketing': { border: 'border-l-green-500', bg: 'bg-green-50 dark:bg-green-950/30', text: 'text-green-600' },
+        'Research': { border: 'border-l-purple-500', bg: 'bg-purple-50 dark:bg-purple-950/30', text: 'text-purple-600' },
     };
 
     return (
@@ -62,84 +93,137 @@ export default function ProjectsPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
-                    <p className="text-gray-500 mt-1">Manage and track all your projects</p>
+                    <h1 className="text-2xl font-bold text-foreground">Dự án</h1>
+                    <p className="text-muted-foreground mt-1">Quản lý và theo dõi tất cả dự án</p>
                 </div>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="btn-primary flex items-center gap-2"
-                >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    New Project
-                </button>
+                <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+                    <DialogTrigger asChild>
+                        <Button>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Dự án mới
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Tạo dự án mới</DialogTitle>
+                            <DialogDescription>
+                                Điền thông tin để tạo dự án mới
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        {error && (
+                            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm flex items-center gap-3">
+                                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                                <span>{error}</span>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleCreateProject} className="space-y-4">
+                            <div className="space-y-2">
+                                <label htmlFor="projectName" className="text-sm font-medium text-foreground">
+                                    Tên dự án *
+                                </label>
+                                <Input
+                                    id="projectName"
+                                    value={newProject.name}
+                                    onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                                    required
+                                    minLength={3}
+                                    placeholder="Nhập tên dự án"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor="projectDesc" className="text-sm font-medium text-foreground">
+                                    Mô tả
+                                </label>
+                                <Textarea
+                                    id="projectDesc"
+                                    value={newProject.description}
+                                    onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                                    rows={3}
+                                    placeholder="Mô tả ngắn về dự án"
+                                />
+                            </div>
+
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
+                                    Hủy
+                                </Button>
+                                <Button type="submit" disabled={isCreating}>
+                                    {isCreating ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                            Đang tạo...
+                                        </>
+                                    ) : (
+                                        'Tạo dự án'
+                                    )}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
             </div>
 
             {/* Search & Filter */}
             <div className="flex items-center gap-4">
                 <div className="relative flex-1 max-w-md">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
-                    <input
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
                         type="text"
-                        placeholder="Search projects..."
+                        placeholder="Tìm kiếm dự án..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        className="pl-10"
                     />
                 </div>
-                <button className="btn-secondary flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                    </svg>
-                    Filter
-                </button>
+                <Button variant="outline">
+                    <Filter className="w-4 h-4 mr-2" />
+                    Lọc
+                </Button>
             </div>
 
             {/* Projects Grid */}
             {isLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <div key={i} className="card p-6 animate-pulse">
-                            <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-                            <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
-                            <div className="h-4 bg-gray-200 rounded w-full mb-4"></div>
-                            <div className="flex justify-between">
-                                <div className="flex gap-2">
-                                    <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
-                                    <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+                        <Card key={i} className="border-0 shadow-sm">
+                            <CardContent className="p-6">
+                                <Skeleton className="h-5 w-20 mb-4" />
+                                <Skeleton className="h-6 w-3/4 mb-2" />
+                                <Skeleton className="h-4 w-full mb-4" />
+                                <div className="flex justify-between">
+                                    <div className="flex gap-2">
+                                        <Skeleton className="w-8 h-8 rounded-full" />
+                                        <Skeleton className="w-8 h-8 rounded-full" />
+                                    </div>
+                                    <Skeleton className="h-4 w-16" />
                                 </div>
-                                <div className="h-4 bg-gray-200 rounded w-16"></div>
-                            </div>
-                        </div>
+                            </CardContent>
+                        </Card>
                     ))}
                 </div>
             ) : filteredProjects.length === 0 ? (
-                <div className="card p-12 text-center">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                        </svg>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        {searchQuery ? 'No projects found' : 'No projects yet'}
-                    </h3>
-                    <p className="text-gray-500 mb-6">
-                        {searchQuery ? 'Try a different search term' : 'Create your first project to get started'}
-                    </p>
-                    {!searchQuery && (
-                        <button onClick={() => setShowCreateModal(true)} className="btn-primary inline-flex items-center gap-2">
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            New Project
-                        </button>
-                    )}
-                </div>
+                <Card className="border-0 shadow-sm">
+                    <CardContent className="p-12 text-center">
+                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FolderKanban className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-foreground mb-2">
+                            {searchQuery ? 'Không tìm thấy dự án' : 'Chưa có dự án nào'}
+                        </h3>
+                        <p className="text-muted-foreground mb-6">
+                            {searchQuery ? 'Thử từ khóa khác' : 'Tạo dự án đầu tiên để bắt đầu'}
+                        </p>
+                        {!searchQuery && (
+                            <Button onClick={() => setShowCreateModal(true)}>
+                                <Plus className="w-4 h-4 mr-2" />
+                                Dự án mới
+                            </Button>
+                        )}
+                    </CardContent>
+                </Card>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredProjects.map((project, index) => {
@@ -151,118 +235,49 @@ export default function ProjectsPage() {
                             <Link
                                 key={project.id}
                                 href={`/dashboard/projects/${project.slug}`}
-                                className={`card card-hover p-6 border-l-4 ${colors.border}`}
+                                className="block"
                             >
-                                <div className="flex items-center gap-2 mb-3">
-                                    <span className={`px-2.5 py-1 text-xs font-medium rounded-md ${colors.badge}`}>
-                                        {category}
-                                    </span>
-                                </div>
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-1">
-                                    {project.name}
-                                </h3>
-                                <p className="text-gray-500 text-sm mb-4 line-clamp-2 min-h-[40px]">
-                                    {project.description || 'No description provided'}
-                                </p>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex -space-x-2">
-                                        {[1, 2, 3].slice(0, Math.min(3, project._count?.members || 1)).map((_, i) => (
-                                            <div key={i} className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white overflow-hidden">
-                                                <img
-                                                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${project.id}-${i}`}
-                                                    alt=""
-                                                    className="w-full h-full"
-                                                />
+                                <Card className={cn(
+                                    "border-0 shadow-sm border-l-4 transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer",
+                                    colors.border,
+                                    colors.bg
+                                )}>
+                                    <CardContent className="p-6">
+                                        <Badge variant="outline" className={cn("mb-3", colors.text)}>
+                                            {category}
+                                        </Badge>
+                                        <h3 className="text-lg font-semibold text-foreground mb-2 line-clamp-1">
+                                            {project.name}
+                                        </h3>
+                                        <p className="text-muted-foreground text-sm mb-4 line-clamp-2 min-h-[40px]">
+                                            {project.description || 'Không có mô tả'}
+                                        </p>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex -space-x-2">
+                                                {[1, 2, 3].slice(0, Math.min(3, project._count?.members || 1)).map((_, i) => (
+                                                    <Avatar key={i} className="w-8 h-8 border-2 border-background">
+                                                        <AvatarImage
+                                                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${project.id}-${i}`}
+                                                        />
+                                                        <AvatarFallback>M</AvatarFallback>
+                                                    </Avatar>
+                                                ))}
+                                                {(project._count?.members || 1) > 3 && (
+                                                    <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium text-muted-foreground">
+                                                        +{(project._count?.members || 1) - 3}
+                                                    </div>
+                                                )}
                                             </div>
-                                        ))}
-                                        {(project._count?.members || 1) > 3 && (
-                                            <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600">
-                                                +{(project._count?.members || 1) - 3}
+                                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                                                <Clock className="w-3.5 h-3.5" />
+                                                <span className="text-xs">2h trước</span>
                                             </div>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-gray-400">
-                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        <span className="text-xs">2h ago</span>
-                                    </div>
-                                </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             </Link>
                         );
                     })}
-                </div>
-            )}
-
-            {/* Create Modal */}
-            {showCreateModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="card p-6 w-full max-w-md">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold text-gray-900">Create new project</h2>
-                            <button
-                                onClick={() => setShowCreateModal(false)}
-                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
-                            >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        {error && (
-                            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
-                                {error}
-                            </div>
-                        )}
-
-                        <form onSubmit={handleCreateProject} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Project name *
-                                </label>
-                                <input
-                                    type="text"
-                                    value={newProject.name}
-                                    onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                                    required
-                                    minLength={3}
-                                    className="input-field"
-                                    placeholder="Enter project name"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Description
-                                </label>
-                                <textarea
-                                    value={newProject.description}
-                                    onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                                    rows={3}
-                                    className="input-field resize-none"
-                                    placeholder="Add a brief description"
-                                />
-                            </div>
-
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowCreateModal(false)}
-                                    className="flex-1 btn-secondary"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isCreating}
-                                    className="flex-1 btn-primary"
-                                >
-                                    {isCreating ? 'Creating...' : 'Create Project'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
                 </div>
             )}
         </div>

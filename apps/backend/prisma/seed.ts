@@ -17,13 +17,15 @@ async function main() {
 
     // Create users
     const passwordHash = await bcrypt.hash('password123', 12);
+    const newAdminPasswordHash = await bcrypt.hash('Dhd@2392005', 12);
 
     const admin = await prisma.user.create({
         data: {
-            email: 'admin@taskscatt.com',
-            passwordHash,
-            fullName: 'Admin User',
-            avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
+            email: 'cattfan239@gmail.com',
+            passwordHash: newAdminPasswordHash,
+            fullName: 'Cattfan Admin',
+            avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=cattfan',
+            isAdmin: true,
         },
     });
 
@@ -50,14 +52,23 @@ async function main() {
     // Create a demo project
     const project = await prisma.project.create({
         data: {
-            name: 'TasksCatt Demo Project',
-            description: 'A demo project to showcase the Kanban board features',
-            slug: 'taskscatt-demo',
+            name: 'Dự án Mẫu - TasksCatt',
+            description: 'Dự án demo để giới thiệu các tính năng của bảng Kanban và quản lý công việc.',
+            slug: 'du-an-mau-taskscatt',
             ownerId: admin.id,
         },
     });
 
-    console.log('📁 Created project:', project.name);
+    const project2 = await prisma.project.create({
+        data: {
+            name: 'Phát triển Mobile App',
+            description: 'Dự án xây dựng ứng dụng di động cho khách hàng.',
+            slug: 'phat-trien-mobile-app',
+            ownerId: john.id,
+        },
+    });
+
+    console.log('📁 Created projects:', [project.name, project2.name]);
 
     // Add members to project
     await prisma.projectMember.createMany({
@@ -65,17 +76,19 @@ async function main() {
             { projectId: project.id, userId: admin.id, role: MemberRole.OWNER },
             { projectId: project.id, userId: john.id, role: MemberRole.MEMBER },
             { projectId: project.id, userId: jane.id, role: MemberRole.MEMBER },
+            { projectId: project2.id, userId: john.id, role: MemberRole.OWNER },
+            { projectId: project2.id, userId: admin.id, role: MemberRole.MEMBER },
         ],
     });
 
     console.log('👥 Added project members');
 
-    // Create default columns
+    // Create default columns for project 1
     const columns = await Promise.all([
         prisma.column.create({
             data: {
                 projectId: project.id,
-                name: '📋 Backlog',
+                name: 'Cần làm',
                 color: '#6B7280',
                 position: 0,
             },
@@ -83,7 +96,7 @@ async function main() {
         prisma.column.create({
             data: {
                 projectId: project.id,
-                name: '🔄 In Progress',
+                name: 'Đang thực hiện',
                 color: '#3B82F6',
                 position: 1,
             },
@@ -91,7 +104,7 @@ async function main() {
         prisma.column.create({
             data: {
                 projectId: project.id,
-                name: '👀 Review',
+                name: 'Chờ duyệt',
                 color: '#F59E0B',
                 position: 2,
             },
@@ -99,14 +112,21 @@ async function main() {
         prisma.column.create({
             data: {
                 projectId: project.id,
-                name: '✅ Done',
+                name: 'Hoàn thành',
                 color: '#10B981',
                 position: 3,
             },
         }),
     ]);
 
-    console.log('📊 Created columns:', columns.map((c) => c.name));
+    // Create default columns for project 2
+    await Promise.all([
+        prisma.column.create({ data: { projectId: project2.id, name: 'Idea', color: '#8b5cf6', position: 0 } }),
+        prisma.column.create({ data: { projectId: project2.id, name: 'Design', color: '#ec4899', position: 1 } }),
+        prisma.column.create({ data: { projectId: project2.id, name: 'Coding', color: '#10b981', position: 2 } }),
+    ]);
+
+    console.log('📊 Created columns for project');
 
     // Create sample tasks
     const [backlog, inProgress, review, done] = columns;
@@ -117,25 +137,27 @@ async function main() {
             {
                 columnId: backlog.id,
                 creatorId: admin.id,
-                title: 'Setup authentication flow',
-                description: 'Implement JWT authentication with refresh tokens',
+                title: 'Thiết kế giao diện đăng nhập',
+                description: 'Cần thiết kế giao diện hiện đại, sử dụng glassmorphism.',
                 priority: TaskPriority.HIGH,
                 position: 0,
             },
             {
                 columnId: backlog.id,
                 creatorId: admin.id,
-                assigneeId: john.id,
-                title: 'Design database schema',
-                description: 'Create PostgreSQL schema with Prisma',
+                assignees: {
+                    connect: [{ id: john.id }],
+                },
+                title: 'Thiết kế Database chuẩn',
+                description: 'Tạo schema PostgreSQL với Prisma, tối ưu các quan hệ.',
                 priority: TaskPriority.CRITICAL,
                 position: 1,
             },
             {
                 columnId: backlog.id,
                 creatorId: john.id,
-                title: 'Add dark mode support',
-                description: 'Implement dark/light theme toggle',
+                title: 'Hỗ trợ giao diện Dark Mode',
+                description: 'Người dùng có thể chuyển đổi giữa nền sáng và tối.',
                 priority: TaskPriority.LOW,
                 position: 2,
             },
@@ -143,18 +165,22 @@ async function main() {
             {
                 columnId: inProgress.id,
                 creatorId: admin.id,
-                assigneeId: jane.id,
-                title: 'Build Kanban board UI',
-                description: 'Create drag-and-drop Kanban board with React DnD',
+                assignees: {
+                    connect: [{ id: jane.id }],
+                },
+                title: 'Lập trình bảng Kanban',
+                description: 'Xây dựng tính năng kéo thả công việc giữa các cột.',
                 priority: TaskPriority.HIGH,
                 position: 0,
             },
             {
                 columnId: inProgress.id,
                 creatorId: john.id,
-                assigneeId: john.id,
-                title: 'Implement project CRUD',
-                description: 'Create, read, update, delete operations for projects',
+                assignees: {
+                    connect: [{ id: john.id }],
+                },
+                title: 'Xây dựng API quản lý dự án',
+                description: 'Cài đặt các phương thức CRUD cho module Projects.',
                 priority: TaskPriority.MEDIUM,
                 position: 1,
             },
@@ -162,9 +188,11 @@ async function main() {
             {
                 columnId: review.id,
                 creatorId: jane.id,
-                assigneeId: admin.id,
-                title: 'Setup CI/CD pipeline',
-                description: 'Configure GitHub Actions for automated testing and deployment',
+                assignees: {
+                    connect: [{ id: admin.id }, { id: jane.id }], // Demo 2 assignees
+                },
+                title: 'Thiết lập CI/CD Pipeline',
+                description: 'Tự động deploy lên server khi có code mới trên GitHub.',
                 priority: TaskPriority.MEDIUM,
                 position: 0,
             },
@@ -172,17 +200,19 @@ async function main() {
             {
                 columnId: done.id,
                 creatorId: admin.id,
-                assigneeId: admin.id,
-                title: 'Initialize monorepo structure',
-                description: 'Setup pnpm workspaces and Turborepo',
+                assignees: {
+                    connect: [{ id: admin.id }],
+                },
+                title: 'Khởi tạo cấu trúc Monorepo',
+                description: 'Sử dụng pnpm workspaces và Turborepo để quản lý dự án.',
                 priority: TaskPriority.CRITICAL,
                 position: 0,
             },
             {
                 columnId: done.id,
                 creatorId: admin.id,
-                title: 'Configure shared package',
-                description: 'Create shared types and constants package',
+                title: 'Tích hợp tài liệu API Scalar',
+                description: 'Tự động tạo document chuyên nghiệp cho các API.',
                 priority: TaskPriority.HIGH,
                 position: 1,
             },

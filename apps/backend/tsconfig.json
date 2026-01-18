@@ -9,6 +9,8 @@
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true,
         "strictPropertyInitialization": false,
+        "noUncheckedIndexedAccess": true,
+        "noImplicitOverride": true,
         "paths": {
             "@/*": [
                 "./src/*"

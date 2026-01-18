@@ -18,10 +18,10 @@ import {
 
 // Default columns khi tạo project mới
 const DEFAULT_COLUMNS = [
-    { name: '📋 Backlog', color: '#6B7280', position: 0 },
-    { name: '🔄 In Progress', color: '#3B82F6', position: 1 },
-    { name: '👀 Review', color: '#F59E0B', position: 2 },
-    { name: '✅ Done', color: '#10B981', position: 3 },
+    { name: 'Backlog', color: '#6B7280', position: 0 },
+    { name: 'In Progress', color: '#3B82F6', position: 1 },
+    { name: 'Review', color: '#F59E0B', position: 2 },
+    { name: 'Done', color: '#10B981', position: 3 },
 ];
 
 @Injectable()
@@ -137,7 +137,7 @@ export class ProjectsService {
                             where: { deletedAt: null },
                             orderBy: { position: 'asc' },
                             include: {
-                                assignee: {
+                                assignees: {
                                     select: { id: true, fullName: true, avatarUrl: true },
                                 },
                                 creator: {
@@ -436,6 +436,185 @@ export class ProjectsService {
 
         return member;
     }
+
+    // ==========================================
+    // PROJECT PROGRESS REPORT
+    // ==========================================
+
+    /**
+     * Lấy báo cáo tiến độ dự án
+     */
+    async getProgress(projectId: string, userId: string) {
+        // Kiểm tra quyền truy cập
+        await this.checkPermission(projectId, userId, [
+            MemberRole.OWNER,
+            MemberRole.ADMIN,
+            MemberRole.MEMBER,
+        ]);
+
+        // Lấy thông tin project với columns và tasks
+        const project = await this.prisma.project.findUnique({
+            where: { id: projectId },
+            include: {
+                columns: {
+                    orderBy: { position: 'asc' },
+                    include: {
+                        tasks: {
+                            where: { deletedAt: null },
+                            include: {
+                                assignees: {
+                                    select: { id: true, fullName: true },
+                                },
+                            },
+                        },
+                    },
+                },
+                members: {
+                    include: {
+                        user: {
+                            select: { id: true, fullName: true, avatarUrl: true },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!project) {
+            throw new NotFoundException('Project không tồn tại');
+        }
+
+        // Tính toán statistics
+        const allTasks = project.columns.flatMap((col) => col.tasks);
+        const totalTasks = allTasks.length;
+
+        // Cột cuối cùng = Done
+        const doneColumn = project.columns[project.columns.length - 1];
+        const completedTasks = doneColumn ? doneColumn.tasks.length : 0;
+        const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100 * 100) / 100 : 0;
+
+        // Weighted progress (theo priority)
+        const priorityWeights = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 };
+        let weightedTotal = 0;
+        let weightedCompleted = 0;
+
+        allTasks.forEach((task) => {
+            const weight = priorityWeights[task.priority] || 1;
+            weightedTotal += weight;
+            if (doneColumn && task.columnId === doneColumn.id) {
+                weightedCompleted += weight;
+            }
+        });
+
+        const weightedProgressPercent = weightedTotal > 0
+            ? Math.round((weightedCompleted / weightedTotal) * 100 * 100) / 100
+            : 0;
+
+        // By Column
+        const byColumn = project.columns.map((col) => ({
+            columnId: col.id,
+            columnName: col.name,
+            color: col.color,
+            count: col.tasks.length,
+        }));
+
+        // By Priority
+        const byPriority = {
+            CRITICAL: { total: 0, completed: 0 },
+            HIGH: { total: 0, completed: 0 },
+            MEDIUM: { total: 0, completed: 0 },
+            LOW: { total: 0, completed: 0 },
+        };
+
+        allTasks.forEach((task) => {
+            byPriority[task.priority].total++;
+            if (doneColumn && task.columnId === doneColumn.id) {
+                byPriority[task.priority].completed++;
+            }
+        });
+
+        // By Member
+        const memberStats = new Map<string, { assigned: number; completed: number }>();
+        // Thống kê theo member (Multi-assignee support)
+        allTasks.forEach((task) => {
+            if (task.assignees && task.assignees.length > 0) {
+                task.assignees.forEach(assignee => {
+                    if (!memberStats.has(assignee.id)) {
+                        memberStats.set(assignee.id, { assigned: 0, completed: 0 });
+                    }
+                    const stat = memberStats.get(assignee.id)!;
+                    stat.assigned++;
+                    if (doneColumn && task.columnId === doneColumn.id) {
+                        stat.completed++;
+                    }
+                });
+            }
+        });
+
+        const byMember = project.members.map((member) => {
+            const stat = memberStats.get(member.userId) || { assigned: 0, completed: 0 };
+            return {
+                userId: member.userId,
+                fullName: member.user.fullName,
+                avatarUrl: member.user.avatarUrl,
+                role: member.role,
+                assignedTasks: stat.assigned,
+                completedTasks: stat.completed,
+                progressPercent: stat.assigned > 0
+                    ? Math.round((stat.completed / stat.assigned) * 100)
+                    : 0,
+            };
+        });
+
+        // Overdue tasks (đã quá hạn)
+        const now = new Date();
+        const overdueTasks = allTasks.filter(
+            (task) =>
+                task.dueDate &&
+                new Date(task.dueDate) < now &&
+                (!doneColumn || task.columnId !== doneColumn.id),
+        ).length;
+
+        // Upcoming deadlines (trong 7 ngày tới)
+        const sevenDaysLater = new Date();
+        sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+
+        const upcomingDeadlines = allTasks
+            .filter(
+                (task) =>
+                    task.dueDate &&
+                    new Date(task.dueDate) >= now &&
+                    new Date(task.dueDate) <= sevenDaysLater &&
+                    (!doneColumn || task.columnId !== doneColumn.id),
+            )
+            .map((task) => ({
+                taskId: task.id,
+                title: task.title,
+                dueDate: task.dueDate,
+                priority: task.priority,
+                assignees: task.assignees,
+            }))
+            .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+
+        return {
+            projectId: project.id,
+            projectName: project.name,
+            summary: {
+                totalTasks,
+                completedTasks,
+                progressPercent,
+                weightedProgressPercent,
+            },
+            byColumn,
+            byPriority,
+            byMember,
+            overdueTasks,
+            upcomingDeadlines,
+        };
+    }
+
+    // ==========================================
+    // HELPERS
+    // ==========================================
 
     /**
      * Generate slug từ tên project
