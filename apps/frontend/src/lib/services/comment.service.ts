@@ -1,4 +1,6 @@
 import api from '@/lib/api';
+import { Attachment } from './attachment.service';
+
 
 export interface Comment {
     id: string;
@@ -11,7 +13,10 @@ export interface Comment {
         fullName: string;
         avatarUrl: string | null;
     };
+    attachments?: Attachment[];
 }
+
+
 
 export interface CreateCommentDto {
     taskId: string;

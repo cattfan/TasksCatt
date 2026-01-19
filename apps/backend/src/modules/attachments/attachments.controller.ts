@@ -9,7 +9,10 @@ import {
     UploadedFile,
     Request,
     Query,
+    Patch,
+    Body,
 } from '@nestjs/common';
+
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -68,4 +71,14 @@ export class AttachmentsController {
     async delete(@Param('id') id: string, @Request() req: any) {
         return this.attachmentsService.delete(id, req.user.id);
     }
+
+    @ApiOperation({ summary: 'PATCH /api/attachments/:id/link - Gắn attachment vào Task/Comment' })
+    @Patch(':id/link')
+    async linkToTarget(
+        @Param('id') id: string,
+        @Body() dto: { taskId?: string; commentId?: string }
+    ) {
+        return this.attachmentsService.linkToTarget(id, dto.taskId, dto.commentId);
+    }
 }
+

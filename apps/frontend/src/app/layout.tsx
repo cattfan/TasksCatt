@@ -33,7 +33,8 @@ export default function RootLayout({
                                     {children}
                                 </ErrorBoundary>
                             </TooltipProvider>
-                            <Toaster richColors position="bottom-right" />
+                            <Toaster position="top-right" />
+
                         </AuthProvider>
                     </LanguageProvider>
                 </ThemeProvider>

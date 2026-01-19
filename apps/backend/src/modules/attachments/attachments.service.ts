@@ -158,12 +158,14 @@ export class AttachmentsService {
      * Gắn attachment vào Task hoặc Comment
      */
     async linkToTarget(attachmentId: string, taskId?: string, commentId?: string) {
+        const data: any = {};
+        if (taskId !== undefined) data.taskId = taskId;
+        if (commentId !== undefined) data.commentId = commentId;
+
         return this.prisma.attachment.update({
             where: { id: attachmentId },
-            data: {
-                taskId: taskId || null,
-                commentId: commentId || null,
-            },
+            data,
         });
     }
+
 }

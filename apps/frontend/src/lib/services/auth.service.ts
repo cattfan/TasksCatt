@@ -6,6 +6,10 @@ export interface User {
     fullName: string;
     avatarUrl: string | null;
     isAdmin: boolean;
+    emailNotifications: boolean;
+    taskUpdateNotifications: boolean;
+    commentReplyNotifications: boolean;
+    projectInviteNotifications: boolean;
 }
 
 export interface AuthResponse {
@@ -37,6 +41,11 @@ export const authService = {
 
     async getProfile(): Promise<User> {
         const { data } = await api.get<User>('/auth/profile');
+        return data;
+    },
+
+    async updateProfile(id: string, dto: Partial<User>): Promise<User> {
+        const { data } = await api.patch<User>(`/users/${id}`, dto);
         return data;
     },
 

@@ -51,6 +51,16 @@ export class UsersController {
         return this.usersService.update(req.user.id, dto);
     }
 
+    @ApiOperation({ summary: 'PATCH /api/users/:id' })
+    @Patch(':id')
+    async updateById(@Param('id') id: string, @Request() req: any, @Body() dto: UpdateUserDto) {
+        // Only allow users to update their own profile (or add admin check)
+        if (req.user.id !== id) {
+            return this.usersService.update(req.user.id, dto); // Fallback to updating self
+        }
+        return this.usersService.update(id, dto);
+    }
+
     @ApiOperation({ summary: 'DELETE /api/users/me' })
     @Delete('me')
     async deleteMe(@Request() req: any) {

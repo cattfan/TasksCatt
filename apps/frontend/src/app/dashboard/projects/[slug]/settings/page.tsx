@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { projectService, Project, ProjectMember } from '@/lib/services/project.service';
+import { useAuth } from '@/contexts/AuthContext';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,11 +27,14 @@ import {
     Loader2,
     Trash2,
     UserPlus,
+    X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function ProjectSettingsPage() {
+    const { user } = useAuth();
+
     const params = useParams();
     const router = useRouter();
     const slug = params.slug as string;
@@ -104,31 +109,72 @@ export default function ProjectSettingsPage() {
     };
 
     const handleRemoveMember = async (memberId: string) => {
-        if (!project || !confirm('Bạn có chắc muốn xóa thành viên này?')) return;
+        if (!project) return;
+
+        // Don't allow removing yourself if you are the owner
+        const memberToRemove = project.members?.find(m => m.id === memberId);
+        if (memberToRemove?.role === 'OWNER') {
+            toast.error('Không thể xóa chủ sở hữu');
+            return;
+        }
 
         try {
             await projectService.removeMember(project.id, memberId);
             toast.success('Đã xóa thành viên');
             loadProject();
+        } catch (error: any) {
+            const message = error.response?.data?.message || 'Không thể xóa thành viên';
+            toast.error(message);
+        }
+    };
+
+
+    const handleUpdateMemberRole = async (memberId: string, role: string) => {
+        if (!project) return;
+
+        try {
+            await projectService.updateMemberRole(project.id, memberId, role);
+            toast.success('Đã cập nhật vai trò');
+            loadProject();
         } catch {
-            toast.error('Không thể xóa thành viên');
+            toast.error('Không thể cập nhật vai trò');
+        }
+    };
+
+
+    const handleLeaveProject = async () => {
+        if (!project || !currentUserMember) return;
+
+        const confirmed = confirm('Bạn có chắc muốn rời khỏi dự án này?');
+        if (!confirmed) return;
+
+        try {
+            await projectService.removeMember(project.id, currentUserMember.id);
+            toast.success('Đã rời khỏi dự án');
+            router.push('/dashboard/projects');
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Không thể rời dự án');
         }
     };
 
     const handleDeleteProject = async () => {
-        if (!project) return;
 
-        const confirmed = confirm(`Bạn có chắc muốn xóa "${project.name}"? Hành động này không thể hoàn tác.`);
-        if (!confirmed) return;
+        if (!project) return;
+        if (currentUserMember?.role !== 'OWNER') {
+            toast.error('Chỉ chủ sở hữu mới có quyền xóa dự án');
+            return;
+        }
 
         try {
             await projectService.delete(project.id);
-            toast.success('Đã xóa dự án');
+            toast.success(`Đã xóa dự án "${project.name}"`);
             router.push('/dashboard/projects');
-        } catch {
-            toast.error('Không thể xóa dự án');
+        } catch (error: any) {
+            const message = error.response?.data?.message || 'Không thể xóa dự án';
+            toast.error(message);
         }
     };
+
 
     const getRoleBadge = (role: string): 'default' | 'secondary' | 'success' => {
         const variants: Record<string, 'default' | 'secondary' | 'success'> = {
@@ -150,11 +196,27 @@ export default function ProjectSettingsPage() {
         return labels[role] || role;
     };
 
+    const currentUserMember = project?.members?.find(m => m.userId === user?.id);
+    const isOwnerOrAdmin = currentUserMember?.role === 'OWNER' || currentUserMember?.role === 'ADMIN';
+    const isOwner = currentUserMember?.role === 'OWNER';
+
     const tabs = [
-        { id: 'general', label: 'Chung', icon: Settings },
-        { id: 'members', label: 'Thành viên', icon: Users },
-        { id: 'danger', label: 'Nguy hiểm', icon: AlertTriangle },
-    ];
+        { id: 'general', label: 'Chung', icon: Settings, visible: isOwnerOrAdmin },
+        { id: 'members', label: 'Thành viên', icon: Users, visible: true },
+        { id: 'danger', label: 'Nguy hiểm', icon: AlertTriangle, visible: true },
+    ].filter(tab => tab.visible);
+
+
+    // Initial tab check
+    useEffect(() => {
+        if (project && tabs.length > 0) {
+            const currentTabExists = tabs.some(t => t.id === activeTab);
+            if (!currentTabExists) {
+                setActiveTab(tabs[0].id);
+            }
+        }
+    }, [project, currentUserMember?.role]);
+
 
     if (isLoading) {
         return (
@@ -164,9 +226,12 @@ export default function ProjectSettingsPage() {
         );
     }
 
+
     if (!project) return null;
 
+
     return (
+
         <div className="max-w-4xl mx-auto space-y-6 w-full overflow-hidden">
             {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -258,39 +323,43 @@ export default function ProjectSettingsPage() {
             {activeTab === 'members' && (
                 <div className="space-y-6">
                     {/* Invite Form */}
-                    <Card className="border-0 shadow-sm">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <UserPlus className="w-5 h-5" />
-                                Mời thành viên
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <form onSubmit={handleInviteMember} className="flex flex-col sm:flex-row gap-3">
-                                <Input
-                                    type="email"
-                                    value={inviteEmail}
-                                    onChange={(e) => setInviteEmail(e.target.value)}
-                                    placeholder="Địa chỉ email"
-                                    required
-                                    className="flex-1"
-                                />
-                                <Select value={inviteRole} onValueChange={setInviteRole}>
-                                    <SelectTrigger className="w-full sm:w-[150px]">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="MEMBER">Thành viên</SelectItem>
-                                        <SelectItem value="ADMIN">Quản trị</SelectItem>
-                                        <SelectItem value="VIEWER">Xem</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Button type="submit" disabled={isSaving} className="w-full sm:w-auto">
-                                    Mời
-                                </Button>
-                            </form>
-                        </CardContent>
-                    </Card>
+                    {isOwnerOrAdmin && (
+                        <Card className="border-0 shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <UserPlus className="w-5 h-5" />
+                                    Mời thành viên
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <form onSubmit={handleInviteMember} className="flex flex-col sm:flex-row gap-3">
+
+                                    <Input
+                                        type="email"
+                                        value={inviteEmail}
+                                        onChange={(e) => setInviteEmail(e.target.value)}
+                                        placeholder="Địa chỉ email"
+                                        required
+                                        className="flex-1"
+                                    />
+                                    <Select value={inviteRole} onValueChange={setInviteRole}>
+                                        <SelectTrigger className="w-full sm:w-[150px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="MEMBER">Thành viên</SelectItem>
+                                            <SelectItem value="ADMIN">Quản trị</SelectItem>
+                                            <SelectItem value="VIEWER">Xem</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+
+                                    <Button type="submit" disabled={isSaving} className="w-full sm:w-auto">
+                                        Mời
+                                    </Button>
+                                </form>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* Members List */}
                     <Card className="border-0 shadow-sm overflow-hidden">
@@ -324,25 +393,47 @@ export default function ProjectSettingsPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <Badge variant={getRoleBadge(member.role)}>
-                                                    {getRoleLabel(member.role)}
-                                                </Badge>
+                                                {member.role !== 'OWNER' && (currentUserMember?.role === 'OWNER' || currentUserMember?.role === 'ADMIN') ? (
+                                                    <Select
+                                                        defaultValue={member.role}
+                                                        onValueChange={(value) => handleUpdateMemberRole(member.id, value)}
+                                                    >
+                                                        <SelectTrigger className="w-[130px] h-8 text-xs font-medium">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="MEMBER">Thành viên</SelectItem>
+                                                            <SelectItem value="ADMIN">Quản trị</SelectItem>
+                                                            <SelectItem value="VIEWER">Xem</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                ) : (
+                                                    <Badge variant={getRoleBadge(member.role)}>
+                                                        {getRoleLabel(member.role)}
+                                                    </Badge>
+                                                )}
                                             </td>
+
                                             <td className="px-6 py-4 text-sm text-muted-foreground">
                                                 {new Date(member.joinedAt).toLocaleDateString('vi-VN')}
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                {member.role !== 'OWNER' && (
+                                                {member.userId !== user?.id && member.role !== 'OWNER' && isOwnerOrAdmin && (
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        className="text-destructive hover:text-destructive"
-                                                        onClick={() => handleRemoveMember(member.id)}
+                                                        className="text-destructive hover:text-destructive h-8 px-2"
+                                                        onClick={() => {
+                                                            if (confirm(`Bạn có chắc muốn xóa "${member.user?.fullName}" khỏi dự án?`)) {
+                                                                handleRemoveMember(member.id);
+                                                            }
+                                                        }}
                                                     >
                                                         Xóa
                                                     </Button>
                                                 )}
                                             </td>
+
                                         </tr>
                                     ))}
                                 </tbody>
@@ -354,26 +445,51 @@ export default function ProjectSettingsPage() {
 
             {/* Danger Zone Tab */}
             {activeTab === 'danger' && (
-                <Card className="border-destructive/50 shadow-sm">
-                    <CardContent className="p-6">
-                        <div className="flex items-start gap-4">
-                            <div className="p-3 bg-destructive/10 rounded-xl">
-                                <Trash2 className="w-6 h-6 text-destructive" />
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="text-lg font-semibold text-foreground">Xóa dự án</h3>
-                                <p className="text-muted-foreground mt-1 mb-4">
-                                    Khi bạn xóa dự án, tất cả công việc, cột và bình luận sẽ bị xóa vĩnh viễn. Không thể hoàn tác.
-                                </p>
-                                <Button variant="destructive" onClick={handleDeleteProject}>
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Xóa dự án này
-                                </Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                <div className="space-y-6">
+                    {isOwner ? (
+                        <Card className="border-destructive/50 shadow-sm">
+                            <CardContent className="p-6">
+                                <div className="flex items-start gap-4">
+                                    <div className="p-3 bg-destructive/10 rounded-xl">
+                                        <Trash2 className="w-6 h-6 text-destructive" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-semibold text-foreground">Xóa dự án</h3>
+                                        <p className="text-muted-foreground mt-1 mb-4">
+                                            Khi bạn xóa dự án, tất cả công việc, cột và bình luận sẽ bị xóa vĩnh viễn. Không thể hoàn tác.
+                                        </p>
+                                        <Button variant="destructive" onClick={handleDeleteProject}>
+                                            <Trash2 className="w-4 h-4 mr-2" />
+                                            Xóa dự án này
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <Card className="border-destructive/50 shadow-sm">
+                            <CardContent className="p-6">
+                                <div className="flex items-start gap-4">
+                                    <div className="p-3 bg-destructive/10 rounded-xl">
+                                        <X className="w-6 h-6 text-destructive" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-semibold text-foreground">Rời dự án</h3>
+                                        <p className="text-muted-foreground mt-1 mb-4">
+                                            Bạn sẽ không còn quyền truy cập vào dự án này sau khi rời đi. Bạn cần được mời lại để tham gia.
+                                        </p>
+                                        <Button variant="destructive" onClick={handleLeaveProject}>
+                                            <X className="w-4 h-4 mr-2" />
+                                            Rời khỏi dự án
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
             )}
+
         </div>
     );
 }

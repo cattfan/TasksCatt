@@ -86,4 +86,24 @@ export class TasksController {
     ) {
         return this.tasksService.reorderTasks(columnId, req.user.id, dto);
     }
+
+    @ApiOperation({ summary: 'POST /api/tasks/:id/labels' })
+    @Post(':id/labels')
+    async addLabel(
+        @Param('id') id: string,
+        @Request() req: any,
+        @Body('labelId') labelId: string,
+    ) {
+        return this.tasksService.addLabel(id, req.user.id, labelId);
+    }
+
+    @ApiOperation({ summary: 'DELETE /api/tasks/:id/labels/:labelId' })
+    @Delete(':id/labels/:labelId')
+    async removeLabel(
+        @Param('id') id: string,
+        @Param('labelId') labelId: string,
+        @Request() req: any,
+    ) {
+        return this.tasksService.removeLabel(id, req.user.id, labelId);
+    }
 }

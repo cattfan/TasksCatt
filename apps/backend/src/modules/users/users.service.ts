@@ -18,6 +18,10 @@ export class UsersService {
                 fullName: true,
                 avatarUrl: true,
                 createdAt: true,
+                emailNotifications: true,
+                taskUpdateNotifications: true,
+                commentReplyNotifications: true,
+                projectInviteNotifications: true,
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -35,6 +39,10 @@ export class UsersService {
                 fullName: true,
                 avatarUrl: true,
                 createdAt: true,
+                emailNotifications: true,
+                taskUpdateNotifications: true,
+                commentReplyNotifications: true,
+                projectInviteNotifications: true,
             },
         });
 
@@ -57,6 +65,10 @@ export class UsersService {
                 fullName: true,
                 avatarUrl: true,
                 createdAt: true,
+                emailNotifications: true,
+                taskUpdateNotifications: true,
+                commentReplyNotifications: true,
+                projectInviteNotifications: true,
             },
         });
     }
@@ -78,6 +90,10 @@ export class UsersService {
                 avatarUrl: true,
                 createdAt: true,
                 updatedAt: true,
+                emailNotifications: true,
+                taskUpdateNotifications: true,
+                commentReplyNotifications: true,
+                projectInviteNotifications: true,
             },
         });
     }

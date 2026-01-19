@@ -24,9 +24,14 @@ const DEFAULT_COLUMNS = [
     { name: 'Done', color: '#10B981', position: 3 },
 ];
 
+import { MailService } from '../mail/mail.service';
+
 @Injectable()
 export class ProjectsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private mailService: MailService,
+    ) { }
 
     // ==========================================
     // PROJECT CRUD
@@ -130,6 +135,7 @@ export class ProjectsService {
                         },
                     },
                 },
+                labels: true,
                 columns: {
                     orderBy: { position: 'asc' },
                     include: {
@@ -143,10 +149,16 @@ export class ProjectsService {
                                 creator: {
                                     select: { id: true, fullName: true },
                                 },
+                                taskLabels: {
+                                    include: {
+                                        label: true,
+                                    },
+                                },
                             },
                         },
                     },
                 },
+
             },
         });
 
@@ -227,7 +239,7 @@ export class ProjectsService {
             throw new ForbiddenException('Không thể thêm OWNER mới');
         }
 
-        return this.prisma.projectMember.create({
+        const membership = await this.prisma.projectMember.create({
             data: {
                 projectId,
                 userId: userToAdd.id,
@@ -235,10 +247,25 @@ export class ProjectsService {
             },
             include: {
                 user: {
-                    select: { id: true, email: true, fullName: true, avatarUrl: true },
+                    select: { id: true, email: true, fullName: true, avatarUrl: true, projectInviteNotifications: true },
+                },
+                project: {
+                    select: { name: true },
                 },
             },
         });
+
+        // Send invite email if enabled
+        if (membership.user.projectInviteNotifications) {
+            const inviter = await this.prisma.user.findUnique({ where: { id: userId } });
+            this.mailService.sendProjectInviteEmail(
+                membership.user.email!,
+                membership.project.name,
+                inviter?.fullName || 'Ai đó'
+            ).catch(err => console.error('Failed to send invite email:', err));
+        }
+
+        return membership;
     }
 
     /**
@@ -285,8 +312,6 @@ export class ProjectsService {
      * Xóa member khỏi project
      */
     async removeMember(projectId: string, memberId: string, userId: string) {
-        await this.checkPermission(projectId, userId, [MemberRole.OWNER, MemberRole.ADMIN]);
-
         const member = await this.prisma.projectMember.findUnique({
             where: { id: memberId },
         });
@@ -295,7 +320,13 @@ export class ProjectsService {
             throw new NotFoundException('Member không tồn tại');
         }
 
-        // Không cho phép xóa OWNER
+        // Allow if user is removing themselves (Leave Project)
+        // OR if user has permission (ADMIN/OWNER) to remove others
+        if (member.userId !== userId) {
+            await this.checkPermission(projectId, userId, [MemberRole.OWNER, MemberRole.ADMIN]);
+        }
+
+        // Không cho phép xóa OWNER (phải transfer quyền trước hoặc xóa dự án)
         if (member.role === MemberRole.OWNER) {
             throw new ForbiddenException('Không thể xóa Owner khỏi project');
         }
@@ -304,6 +335,7 @@ export class ProjectsService {
             where: { id: memberId },
         });
     }
+
 
     // ==========================================
     // COLUMN MANAGEMENT

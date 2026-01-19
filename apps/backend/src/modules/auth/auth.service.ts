@@ -44,6 +44,10 @@ export class AuthService {
                 fullName: user.fullName,
                 avatarUrl: user.avatarUrl,
                 isAdmin: user.isAdmin,
+                emailNotifications: user.emailNotifications,
+                taskUpdateNotifications: user.taskUpdateNotifications,
+                commentReplyNotifications: user.commentReplyNotifications,
+                projectInviteNotifications: user.projectInviteNotifications,
             },
         };
     }
@@ -84,6 +88,10 @@ export class AuthService {
                 fullName: user.fullName,
                 avatarUrl: user.avatarUrl,
                 isAdmin: user.isAdmin,
+                emailNotifications: user.emailNotifications,
+                taskUpdateNotifications: user.taskUpdateNotifications,
+                commentReplyNotifications: user.commentReplyNotifications,
+                projectInviteNotifications: user.projectInviteNotifications,
             },
         };
     }
@@ -101,6 +109,10 @@ export class AuthService {
                 avatarUrl: true,
                 isAdmin: true,
                 createdAt: true,
+                emailNotifications: true,
+                taskUpdateNotifications: true,
+                commentReplyNotifications: true,
+                projectInviteNotifications: true,
             },
         });
 

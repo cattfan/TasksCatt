@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { projectService, taskService, Project, Task, Column } from '@/lib/services/project.service';
+import { useProjectSocket } from '@/hooks/useProjectSocket';
 import {
     DndContext,
     DragOverlay,
@@ -37,7 +38,29 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuCheckboxItem,
+    DropdownMenuSeparator,
+    DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
+
+
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+
 import {
 
     Plus,
@@ -57,27 +80,66 @@ import {
     CheckCircle2,
     X,
     Users,
+    Inbox,
+    PlayCircle,
+    Eye,
+    CheckCircle,
+    ListTodo,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import TaskDetailPanel from '@/components/TaskDetailPanel';
+
+// Helper function to get Lucide icon for column based on name
+function getColumnIcon(columnName: string) {
+    const name = columnName.toLowerCase();
+
+    // Strip emoji from name first (if any)
+    const cleanName = name.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
+
+    if (cleanName.includes('backlog') || cleanName.includes('todo') || cleanName.includes('to do') || cleanName.includes('new')) {
+        return <Inbox className="w-4 h-4" />;
+    }
+    if (cleanName.includes('progress') || cleanName.includes('doing') || cleanName.includes('working')) {
+        return <PlayCircle className="w-4 h-4" />;
+    }
+    if (cleanName.includes('review') || cleanName.includes('testing') || cleanName.includes('qa')) {
+        return <Eye className="w-4 h-4" />;
+    }
+    if (cleanName.includes('done') || cleanName.includes('complete') || cleanName.includes('finished')) {
+        return <CheckCircle className="w-4 h-4" />;
+    }
+    return <ListTodo className="w-4 h-4" />; // Default icon
+}
+
+// Helper to strip emoji from column name
+function stripEmoji(text: string): string {
+    return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
+}
 
 // Quick action task card matching Linear/Trello UX
 function TaskCardContent({
     task,
     getPriorityBadge,
     columns,
+    projectLabels,
     onStatusChange,
     onQuickAction,
+    onDateChange,
+    onToggleLabel,
 }: {
-    task: Task;
+    task: Task & { taskLabels?: { label: any }[] };
     getPriorityBadge: (priority: string) => { class: string; label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' };
     columns?: Column[];
+    projectLabels?: any[];
     onStatusChange?: (columnId: string) => void;
     onQuickAction?: (action: string) => void;
+    onDateChange?: (date: string) => void;
+    onToggleLabel?: (labelId: string) => void;
 }) {
     const badge = getPriorityBadge(task.priority);
-    const taskId = `TC-${task.id.slice(0, 4).toUpperCase()}`;
     const currentColumn = columns?.find(c => c.id === task.columnId);
+    const taskLabels = task.taskLabels?.map(tl => tl.label) || [];
+
 
     // Status color based on column position
     const getStatusColor = (columnName?: string) => {
@@ -90,32 +152,43 @@ function TaskCardContent({
     };
 
     return (
-        <Card className="cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-white group border-border/40">
+        <Card className="cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-white group border-border/40 overflow-hidden">
             <CardContent className="p-3">
-                {/* Task ID */}
-                <div className="text-[10px] font-medium text-muted-foreground mb-1">
-                    {taskId}
-                </div>
-
                 {/* Title */}
                 <h4 className="text-sm font-medium text-foreground mb-2 line-clamp-2">
                     {task.title}
                 </h4>
 
+                {/* Sub-info: Tags/Labels if any */}
+                {taskLabels.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                        {taskLabels.map((label: any) => (
+                            <span
+                                key={label.id}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                style={{ backgroundColor: `${label.color}20`, color: label.color }}
+                            >
+                                {label.name}
+                            </span>
+                        ))}
+                    </div>
+                )}
+
+
                 {/* Quick Actions Row */}
-                <div className="flex items-center justify-between gap-2">
-                    {/* Left: Status Dropdown */}
-                    <div className="flex items-center gap-1">
+                <div className="flex items-center justify-between gap-1.5 min-w-0">
+                    {/* Left: Status & Priority */}
+                    <div className="flex items-center gap-1 overflow-hidden min-w-0 flex-1">
                         {columns && onStatusChange ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                    <button className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors hover:opacity-80 ${getStatusColor(currentColumn?.name)}`}>
-                                        <Circle className="w-2.5 h-2.5 fill-current" />
-                                        {currentColumn?.name || 'Status'}
-                                        <ChevronDown className="w-3 h-3 opacity-60" />
+                                    <button className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded-md transition-colors hover:opacity-80 min-w-0 shrink ${getStatusColor(currentColumn?.name)}`}>
+                                        {currentColumn ? getColumnIcon(currentColumn.name) : <Circle className="w-2 h-2 fill-current" />}
+                                        <span className="truncate">{currentColumn ? stripEmoji(currentColumn.name) : 'Status'}</span>
+                                        <ChevronDown className="w-2.5 h-2.5 opacity-60 shrink-0" />
                                     </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="w-40">
+                                <DropdownMenuContent align="start" className="w-44">
                                     {columns.map((col) => (
                                         <DropdownMenuItem
                                             key={col.id}
@@ -123,13 +196,15 @@ function TaskCardContent({
                                                 e.stopPropagation();
                                                 onStatusChange(col.id);
                                             }}
-                                            className="flex items-center gap-2"
+                                            className="flex items-center gap-2 text-xs"
                                         >
                                             <div
-                                                className="w-2 h-2 rounded-full"
-                                                style={{ backgroundColor: col.color || '#6b7280' }}
-                                            />
-                                            {col.name}
+                                                className="flex items-center justify-center font-bold"
+                                                style={{ color: col.color || '#6b7280' }}
+                                            >
+                                                {getColumnIcon(col.name)}
+                                            </div>
+                                            {stripEmoji(col.name)}
                                             {col.id === task.columnId && (
                                                 <CheckCircle2 className="w-3 h-3 ml-auto text-primary" />
                                             )}
@@ -137,37 +212,18 @@ function TaskCardContent({
                                     ))}
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                        ) : (
-                            <Badge variant={badge.variant} className="text-xs">
-                                {badge.label}
-                            </Badge>
-                        )}
+                        ) : null}
+
+                        {/* Priority Badge right next to status */}
+                        <Badge variant={badge.variant} className="text-[9px] px-1 py-0 h-4.5 min-w-0 shrink truncate">
+                            {badge.label}
+                        </Badge>
                     </div>
 
                     {/* Right: Quick Action Icons + Assignees */}
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
                         {/* Quick Action Icons - visible on hover */}
                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onQuickAction?.('attach');
-                                }}
-                                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                title="Đính kèm"
-                            >
-                                <Paperclip className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onQuickAction?.('calendar');
-                                }}
-                                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                title="Ngày hết hạn"
-                            >
-                                <Calendar className="w-3.5 h-3.5" />
-                            </button>
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -178,34 +234,106 @@ function TaskCardContent({
                             >
                                 <MessageSquare className="w-3.5 h-3.5" />
                             </button>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onQuickAction?.('tag');
-                                }}
-                                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                title="Nhãn"
-                            >
-                                <Tag className="w-3.5 h-3.5" />
-                            </button>
+
+                            {/* Quick Date Edit */}
+                            <div className="relative">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const input = e.currentTarget.nextElementSibling as HTMLInputElement;
+                                        if (input) {
+                                            try {
+                                                if ('showPicker' in input) {
+                                                    (input as any).showPicker();
+                                                } else {
+                                                    (input as any).click();
+                                                }
+                                            } catch (err) {
+                                                input.click();
+                                            }
+                                        }
+                                    }}
+                                    className={`p-1 rounded hover:bg-muted transition-colors flex items-center gap-0.5 ${task.dueDate ? 'text-indigo-600 bg-indigo-50' : 'text-muted-foreground'}`}
+                                    title={task.dueDate ? `Hạn: ${new Date(task.dueDate).toLocaleDateString()}` : "Thêm ngày"}
+                                >
+                                    <Calendar className="w-3 h-3" />
+                                    {task.dueDate && (
+                                        <span className="text-[9px] font-medium leading-none">
+                                            {new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                                        </span>
+                                    )}
+                                </button>
+                                <input
+                                    type="date"
+                                    className="absolute inset-0 opacity-0 w-0 h-0 pointer-events-none"
+                                    value={task.dueDate ? task.dueDate.split('T')[0] : ''}
+                                    onChange={(e) => {
+                                        e.stopPropagation();
+                                        if (e.target.value !== undefined) {
+                                            onDateChange?.(e.target.value);
+                                        }
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                />
+                            </div>
+
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                        className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                        title="Quản lý nhãn"
+                                    >
+                                        <Tag className="w-3.5 h-3.5" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuLabel className="text-xs">Nhãn công việc</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    {projectLabels && projectLabels.length > 0 ? (
+                                        projectLabels.map((label) => {
+                                            const isChecked = taskLabels.some(tl => tl.id === label.id);
+                                            return (
+                                                <DropdownMenuCheckboxItem
+                                                    key={label.id}
+                                                    checked={isChecked}
+                                                    onCheckedChange={() => onToggleLabel?.(label.id)}
+                                                    className="text-xs"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <div
+                                                            className="w-2 h-2 rounded-full"
+                                                            style={{ backgroundColor: label.color }}
+                                                        />
+                                                        {label.name}
+                                                    </div>
+                                                </DropdownMenuCheckboxItem>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
+                                            Chưa có nhãn dự án
+                                        </div>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
 
                         {/* Assignees */}
                         {task.assignees && task.assignees.length > 0 && (
-                            <div className="flex -space-x-1.5 ml-1">
+                            <div className="flex -space-x-1.5 ml-0.5 shrink-0">
                                 {task.assignees.slice(0, 2).map((assignee, i) => (
-                                    <Avatar key={assignee.id} className="w-6 h-6 border-2 border-white">
+                                    <Avatar key={assignee.id} className="w-5 h-5 border-2 border-white">
                                         <AvatarImage
                                             src={assignee.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${assignee.id}`}
                                             alt={assignee.fullName}
                                         />
-                                        <AvatarFallback className="text-[10px]">
+                                        <AvatarFallback className="text-[8px]">
                                             {assignee.fullName?.charAt(0)}
                                         </AvatarFallback>
                                     </Avatar>
                                 ))}
                                 {task.assignees.length > 2 && (
-                                    <div className="w-6 h-6 rounded-full bg-muted border-2 border-white flex items-center justify-center text-[10px] font-medium text-muted-foreground">
+                                    <div className="w-5 h-5 rounded-full bg-muted border-2 border-white flex items-center justify-center text-[8px] font-medium text-muted-foreground">
                                         +{task.assignees.length - 2}
                                     </div>
                                 )}
@@ -213,6 +341,7 @@ function TaskCardContent({
                         )}
                     </div>
                 </div>
+
             </CardContent>
         </Card>
     );
@@ -225,16 +354,23 @@ function SortableTaskCard({
     onClick,
     getPriorityBadge,
     columns,
+    projectLabels,
     onStatusChange,
     onQuickAction,
+    onDateChange,
+    onToggleLabel,
 }: {
     task: Task;
     onClick: () => void;
     getPriorityBadge: (priority: string) => { class: string; label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' };
     columns?: Column[];
+    projectLabels?: any[];
     onStatusChange?: (taskId: string, columnId: string) => void;
     onQuickAction?: (taskId: string, action: string) => void;
+    onDateChange?: (taskId: string, date: string) => void;
+    onToggleLabel?: (taskId: string, labelId: string) => void;
 }) {
+
     const {
         attributes,
         listeners,
@@ -272,9 +408,13 @@ function SortableTaskCard({
                     task={task}
                     getPriorityBadge={getPriorityBadge}
                     columns={columns}
+                    projectLabels={projectLabels}
                     onStatusChange={onStatusChange ? (colId) => onStatusChange(task.id, colId) : undefined}
                     onQuickAction={onQuickAction ? (action) => onQuickAction(task.id, action) : undefined}
+                    onDateChange={onDateChange ? (date) => onDateChange(task.id, date) : undefined}
+                    onToggleLabel={onToggleLabel ? (labelId) => onToggleLabel(task.id, labelId) : undefined}
                 />
+
             </div>
         </div>
 
@@ -318,14 +458,17 @@ function DroppableColumn({
             <div className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: column.color || '#6b7280' }}
-                    />
-                    <h3 className="font-semibold text-foreground">{column.name}</h3>
+                        className="flex items-center justify-center"
+                        style={{ color: column.color || '#6b7280' }}
+                    >
+                        {getColumnIcon(column.name)}
+                    </div>
+                    <h3 className="font-semibold text-foreground">{stripEmoji(column.name)}</h3>
                     <Badge variant="secondary" className="text-xs">
                         {column.tasks?.length || 0}
                     </Badge>
                 </div>
+
                 <div className="flex items-center gap-1">
                     <Button
                         variant="ghost"
@@ -449,6 +592,11 @@ export default function ProjectDetailPage() {
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [activeColumn, setActiveColumn] = useState<Column | null>(null);
+    const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [inviteRole, setInviteRole] = useState('MEMBER');
+    const [isInviting, setIsInviting] = useState(false);
+
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -463,7 +611,7 @@ export default function ProjectDetailPage() {
         loadProject();
     }, [slug]);
 
-    const loadProject = async () => {
+    const loadProject = useCallback(async () => {
         try {
             const data = await projectService.getBySlug(slug);
             setProject(data);
@@ -473,7 +621,10 @@ export default function ProjectDetailPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [slug, router]);
+
+    // Enable realtime updates via WebSocket
+    useProjectSocket(project?.id, loadProject);
 
     const handleAddColumn = async () => {
         if (!newColumnName.trim() || !project) return;
@@ -527,7 +678,28 @@ export default function ProjectDetailPage() {
         }
     };
 
+    const handleToggleLabel = async (taskId: string, labelId: string) => {
+        const task = findTaskById(taskId);
+        if (!task) return;
+
+        const taskLabels = (task as any).taskLabels?.map((tl: any) => tl.label) || [];
+        const hasLabel = taskLabels.some((l: any) => l.id === labelId);
+
+        try {
+            if (hasLabel) {
+                await taskService.removeLabel(taskId, labelId);
+            } else {
+                await taskService.addLabel(taskId, labelId);
+            }
+            loadProject();
+        } catch (error) {
+            console.error('Failed to toggle label:', error);
+            toast.error('Không thể cập nhật nhãn');
+        }
+    };
+
     // Quick status change from task card dropdown
+
     const handleQuickStatusChange = async (taskId: string, columnId: string) => {
         try {
             const targetColumn = project?.columns?.find(c => c.id === columnId);
@@ -546,10 +718,72 @@ export default function ProjectDetailPage() {
         const task = findTaskById(taskId);
         if (task) {
             setSelectedTask(task);
-            // Note: Could pass action to TaskDetailPanel to auto-scroll to section
-            toast.info(`Mở ${action === 'attach' ? 'đính kèm' : action === 'calendar' ? 'lịch' : action === 'comment' ? 'bình luận' : 'nhãn'}`);
+            if (action === 'tag') {
+                toast.info("Mở nhãn: Nhãn dùng để phân loại và lọc công việc");
+            } else {
+                toast.info(`Mở ${action === 'attach' ? 'đính kèm' : action === 'calendar' ? 'lịch' : action === 'comment' ? 'bình luận' : 'nhãn'}`);
+            }
         }
     };
+
+    const handleQuickDateChange = async (taskId: string, date: string) => {
+        try {
+            // If date is blank, set to null
+            if (!date || date.trim() === '') {
+                await taskService.update(taskId, { dueDate: null });
+                toast.success('Đã xóa ngày hết hạn');
+                loadProject();
+                return;
+            }
+
+            const dateObj = new Date(date);
+            // Check if it's a valid date
+            if (isNaN(dateObj.getTime())) {
+                console.error('Invalid date received:', date);
+                return;
+            }
+
+            const dueDate = dateObj.toISOString();
+            await taskService.update(taskId, { dueDate });
+            toast.success('Đã cập nhật ngày hết hạn');
+            loadProject();
+        } catch (error) {
+            console.error('Failed to update due date:', error);
+            toast.error('Không thể cập nhật ngày');
+        }
+    };
+
+
+
+    const handleInvite = async () => {
+        if (!inviteEmail.trim() || !project) return;
+
+        // Safety check for ID
+        const targetId = project.id;
+        if (!targetId || typeof targetId !== 'string') {
+            console.error('Invalid Project ID:', targetId);
+            toast.error('Lỗi dữ liệu dự án. Vui lòng tải lại trang.');
+            return;
+        }
+
+        setIsInviting(true);
+        try {
+            console.log(`Inviting ${inviteEmail} (Role: ${inviteRole}) to Project: ${targetId}`);
+            await projectService.addMember(targetId, inviteEmail, inviteRole as any);
+            toast.success(`Đã mời ${inviteEmail} vào dự án`);
+            setIsInviteDialogOpen(false);
+            setInviteEmail('');
+            loadProject();
+        } catch (error: any) {
+            console.error('Failed to invite member:', error);
+            const msg = error.response?.data?.message || 'Email không tồn tại hoặc đã tham gia dự án.';
+            toast.error(`Lỗi khi mời: ${msg}`);
+        } finally {
+            setIsInviting(false);
+        }
+    };
+
+
 
     const getPriorityBadge = (priority: string) => {
         const badges: Record<string, { class: string; label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -780,15 +1014,61 @@ export default function ProjectDetailPage() {
                         )}
                     </div>
 
-                    <button className="btn-secondary flex items-center gap-2">
-                        <Users className="w-5 h-5" />
-                        Invite
-                    </button>
+                    <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+                        <DialogTrigger asChild>
+                            <button className="btn-secondary flex items-center gap-2">
+                                <Users className="w-5 h-5" />
+                                Invite
+                            </button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Mời thành viên</DialogTitle>
+                                <DialogDescription>
+                                    Nhập email của người bạn muốn mời vào dự án {project.name}.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Email</label>
+                                    <Input
+                                        placeholder="user@example.com"
+                                        value={inviteEmail}
+                                        onChange={(e) => setInviteEmail(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleInvite();
+                                        }}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Vai trò</label>
+                                    <Select value={inviteRole} onValueChange={setInviteRole}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="MEMBER">Thành viên</SelectItem>
+                                            <SelectItem value="ADMIN">Quản trị viên</SelectItem>
+                                        </SelectContent>
+
+                                    </Select>
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setIsInviteDialogOpen(false)}>Hủy</Button>
+                                <Button onClick={handleInvite} disabled={isInviting}>
+                                    {isInviting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                    Gửi lời mời
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     <Link href={`/dashboard/projects/${slug}/settings`} className="btn-ghost">
                         <Settings className="w-5 h-5" />
                     </Link>
                 </div>
+
             </div>
 
             {/* Kanban Board with Drag and Drop */}
@@ -831,9 +1111,15 @@ export default function ProjectDetailPage() {
                                                 onClick={() => setSelectedTask(task)}
                                                 getPriorityBadge={getPriorityBadge}
                                                 columns={project.columns}
+                                                projectLabels={(project as any).labels}
                                                 onStatusChange={handleQuickStatusChange}
                                                 onQuickAction={handleQuickAction}
+                                                onDateChange={(date) => handleQuickDateChange(task.id, date)}
+                                                onToggleLabel={(labelId: string) => handleToggleLabel(task.id, labelId)}
                                             />
+
+
+
                                         ))}
 
                                     </SortableContext>
@@ -892,10 +1178,20 @@ export default function ProjectDetailPage() {
                 <DragOverlay>
                     {activeTask && (
                         <div className="rotate-3 scale-105">
-                            <TaskCardContent task={activeTask} getPriorityBadge={getPriorityBadge} />
+                            <TaskCardContent
+                                task={activeTask as any}
+                                getPriorityBadge={getPriorityBadge}
+                                columns={project.columns}
+                                projectLabels={(project as any).labels}
+                                onQuickAction={(action) => handleQuickAction(activeTask.id, action)}
+                                onDateChange={(date) => handleQuickDateChange(activeTask.id, date)}
+                                onToggleLabel={(labelId: string) => handleToggleLabel(activeTask.id, labelId)}
+                            />
+
                         </div>
                     )}
                 </DragOverlay>
+
             </DndContext >
             {/* Task Detail Panel */}
             {

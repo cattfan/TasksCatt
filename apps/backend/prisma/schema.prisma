@@ -27,6 +27,12 @@ model User {
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
 
+  // Notification Preferences
+  emailNotifications         Boolean @default(true) @map("email_notifications")
+  taskUpdateNotifications    Boolean @default(true) @map("task_update_notifications")
+  commentReplyNotifications  Boolean @default(true) @map("comment_reply_notifications")
+  projectInviteNotifications Boolean @default(true) @map("project_invite_notifications")
+
   // Relations
   ownedProjects  Project[]       @relation("ProjectOwner")
   memberships    ProjectMember[]
@@ -271,7 +277,9 @@ enum MemberRole {
   OWNER
   ADMIN
   MEMBER
+  VIEWER
 }
+
 
 enum TaskPriority {
   LOW

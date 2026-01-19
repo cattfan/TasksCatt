@@ -7,9 +7,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { MemberRole } from '@prisma/client';
 import { CreateCommentDto, UpdateCommentDto } from './dto';
 
+import { MailService } from '../mail/mail.service';
+
 @Injectable()
 export class CommentsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private mailService: MailService,
+    ) { }
 
     /**
      * Tạo comment mới (UC27)
@@ -37,7 +42,7 @@ export class CommentsService {
             [MemberRole.MEMBER, MemberRole.ADMIN, MemberRole.OWNER],
         );
 
-        return this.prisma.comment.create({
+        const comment = await this.prisma.comment.create({
             data: {
                 taskId: dto.taskId,
                 authorId: userId,
@@ -47,8 +52,42 @@ export class CommentsService {
                 author: {
                     select: { id: true, fullName: true, avatarUrl: true },
                 },
+                attachments: true,
+                task: {
+                    select: { title: true },
+                },
             },
         });
+
+        // Trigger mentions - simple regex for @mentions or emails
+        const mentionRegex = /@([a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[a-zA-Z0-9_-]+)/g;
+        const matches = dto.content.match(mentionRegex);
+
+        if (matches) {
+            const mentions = matches.map(m => m.slice(1)); // remove @
+            const mentionedUsers = await this.prisma.user.findMany({
+                where: {
+                    OR: [
+                        { email: { in: mentions } },
+                        { fullName: { in: mentions } }, // Simple name match
+                    ],
+                    emailNotifications: true, // Only if enabled
+                },
+            });
+
+            for (const user of mentionedUsers) {
+                if (user.id !== userId) { // Don't notify self
+                    this.mailService.sendMentionEmail(
+                        user.email,
+                        comment.author.fullName,
+                        comment.task.title,
+                        dto.content
+                    ).catch(err => console.error('Failed to send mention email:', err));
+                }
+            }
+        }
+
+        return comment;
     }
 
     /**
@@ -81,9 +120,11 @@ export class CommentsService {
                 author: {
                     select: { id: true, fullName: true, avatarUrl: true },
                 },
+                attachments: true,
             },
             orderBy: { createdAt: 'asc' },
         });
+
     }
 
     /**

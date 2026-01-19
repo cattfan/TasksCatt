@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { authService } from '@/lib/services/auth.service';
 import { Button } from '@/components/ui/button';
@@ -15,8 +15,6 @@ import {
     Bell,
     Camera,
     Loader2,
-    CheckCircle2,
-    AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -32,6 +30,28 @@ export default function SettingsPage() {
         email: user?.email || '',
     });
 
+    const [notificationPrefs, setNotificationPrefs] = useState({
+        emailNotifications: user?.emailNotifications ?? true,
+        taskUpdateNotifications: user?.taskUpdateNotifications ?? true,
+        commentReplyNotifications: user?.commentReplyNotifications ?? true,
+        projectInviteNotifications: user?.projectInviteNotifications ?? true,
+    });
+
+    useEffect(() => {
+        if (user) {
+            setFormData({
+                fullName: user.fullName || '',
+                email: user.email || '',
+            });
+            setNotificationPrefs({
+                emailNotifications: user.emailNotifications,
+                taskUpdateNotifications: user.taskUpdateNotifications,
+                commentReplyNotifications: user.commentReplyNotifications,
+                projectInviteNotifications: user.projectInviteNotifications,
+            });
+        }
+    }, [user]);
+
     const [passwordData, setPasswordData] = useState({
         currentPassword: '',
         newPassword: '',
@@ -40,9 +60,11 @@ export default function SettingsPage() {
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!user) return;
         setIsSaving(true);
 
         try {
+            await authService.updateProfile(user.id, { fullName: formData.fullName });
             await refreshUser();
             toast.success('Cập nhật hồ sơ thành công!');
             setIsEditing(false);
@@ -50,6 +72,23 @@ export default function SettingsPage() {
             toast.error('Không thể cập nhật hồ sơ');
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleUpdateNotificationPref = async (id: string, value: boolean) => {
+        if (!user) return;
+
+        const newPrefs = { ...notificationPrefs, [id]: value };
+        setNotificationPrefs(newPrefs);
+
+        try {
+            await authService.updateProfile(user.id, { [id]: value });
+            await refreshUser();
+            toast.success('Đã cập nhật tùy chọn thông báo');
+        } catch {
+            toast.error('Không thể cập nhật tùy chọn thông báo');
+            // Revert on error
+            setNotificationPrefs(notificationPrefs);
         }
     };
 
@@ -86,14 +125,15 @@ export default function SettingsPage() {
     ];
 
     const notificationSettings = [
-        { label: 'Thông báo email', description: 'Nhận email khi có người nhắc đến bạn' },
-        { label: 'Cập nhật task', description: 'Nhận thông báo khi task được cập nhật' },
-        { label: 'Trả lời bình luận', description: 'Nhận thông báo khi có phản hồi bình luận' },
-        { label: 'Lời mời dự án', description: 'Nhận thông báo khi được mời tham gia dự án' },
+        // { id: 'emailNotifications', label: 'Thông báo email', description: 'Nhận email khi có người nhắc đến bạn' }, // REMOVED as per request
+        { id: 'taskUpdateNotifications', label: 'Cập nhật task', description: 'Nhận thông báo khi task được cập nhật' },
+        { id: 'commentReplyNotifications', label: 'Trả lời bình luận', description: 'Nhận thông báo khi có phản hồi bình luận' },
+        { id: 'projectInviteNotifications', label: 'Lời mời dự án', description: 'Nhận thông báo khi được mời tham gia dự án' },
     ];
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
+            {/* ... (Header and Tabs code remains same) ... */}
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold text-foreground">Cài đặt</h1>
@@ -285,9 +325,9 @@ export default function SettingsPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-1">
-                        {notificationSettings.map((item, index) => (
+                        {notificationSettings.map((item) => (
                             <div
-                                key={index}
+                                key={item.id}
                                 className="flex items-center justify-between py-4 border-b last:border-0"
                             >
                                 <div>
@@ -295,7 +335,12 @@ export default function SettingsPage() {
                                     <p className="text-sm text-muted-foreground">{item.description}</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" defaultChecked className="sr-only peer" />
+                                    <input
+                                        type="checkbox"
+                                        checked={!!(notificationPrefs as any)[item.id]}
+                                        onChange={(e) => handleUpdateNotificationPref(item.id, e.target.checked)}
+                                        className="sr-only peer"
+                                    />
                                     <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
                                 </label>
                             </div>

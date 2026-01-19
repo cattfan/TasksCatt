@@ -8,11 +8,14 @@ import { EventsGateway } from '../../gateway/events.gateway';
 import { MemberRole, TaskPriority, Prisma } from '@prisma/client';
 import { CreateTaskDto, UpdateTaskDto, MoveTaskDto, ReorderTasksDto, SearchTasksDto } from './dto';
 
+import { MailService } from '../mail/mail.service';
+
 @Injectable()
 export class TasksService {
     constructor(
         private prisma: PrismaService,
         private eventsGateway: EventsGateway,
+        private mailService: MailService,
     ) { }
 
     // ==========================================
@@ -290,6 +293,7 @@ export class TasksService {
         }
 
         const { assigneeIds, ...updateData } = dto;
+        const updater = await this.prisma.user.findUnique({ where: { id: userId } });
 
         const updatedTask = await this.prisma.task.update({
             where: { id: taskId },
@@ -310,13 +314,31 @@ export class TasksService {
                 },
             },
         });
-
         // Emit realtime event
         this.eventsGateway.emitTaskUpdated(
             task.column.projectId,
             updatedTask as unknown as Record<string, unknown>,
-            { id: userId, fullName: updatedTask.creator.fullName || 'Unknown' }
+            { id: userId, fullName: updater?.fullName || 'Unknown' }
         );
+
+        // Send update email to assignees if enabled
+        const assigneesToNotify = await this.prisma.user.findMany({
+            where: {
+                AND: [
+                    { id: { in: updatedTask.assignees.map(a => a.id) } },
+                    { id: { not: userId } }, // Don't notify updater
+                    { taskUpdateNotifications: true },
+                ]
+            }
+        });
+
+        for (const userToNotify of assigneesToNotify) {
+            this.mailService.sendTaskUpdateEmail(
+                userToNotify.email,
+                updatedTask.title,
+                updater?.fullName || 'Ai đó'
+            ).catch(err => console.error('Failed to send task update email:', err));
+        }
 
         return updatedTask;
     }
@@ -451,7 +473,7 @@ export class TasksService {
             }
 
             // Cập nhật task
-            return tx.task.update({
+            const movedTask = await tx.task.update({
                 where: { id: taskId },
                 data: {
                     columnId: dto.targetColumnId,
@@ -469,9 +491,20 @@ export class TasksService {
                     },
                 },
             });
+
+            // Emit realtime event for task moved
+            this.eventsGateway.emitTaskMoved(
+                task.column.projectId,
+                taskId,
+                oldColumnId,
+                dto.targetColumnId,
+                newPosition,
+                { id: userId, fullName: movedTask.creator.fullName || 'Unknown' }
+            );
+
+            return movedTask;
         });
     }
-
     /**
      * Reorder tasks trong một column
      */
@@ -501,6 +534,78 @@ export class TasksService {
         await this.prisma.$transaction(updates);
 
         return { success: true };
+    }
+
+    /**
+     * Thêm label vào task
+     */
+    async addLabel(taskId: string, userId: string, labelId: string) {
+        // Verify task exists
+        const task = await this.prisma.task.findUnique({
+            where: { id: taskId, deletedAt: null },
+            include: { column: true },
+        });
+
+        if (!task) {
+            throw new NotFoundException('Task không tồn tại');
+        }
+
+        // Check permission
+        await this.checkProjectPermission(task.column.projectId, userId, [
+            MemberRole.OWNER,
+            MemberRole.ADMIN,
+            MemberRole.MEMBER,
+        ]);
+
+        // Verify label belongs to project
+        const label = await this.prisma.label.findUnique({
+            where: { id: labelId },
+        });
+
+        if (!label || label.projectId !== task.column.projectId) {
+            throw new NotFoundException('Label không tồn tại trong dự án này');
+        }
+
+        return this.prisma.taskLabel.upsert({
+            where: {
+                taskId_labelId: { taskId, labelId },
+            },
+            create: {
+                taskId,
+                labelId,
+            },
+            update: {}, // Do nothing if already exists
+        });
+    }
+
+    /**
+     * Xóa label khỏi task
+     */
+    async removeLabel(taskId: string, userId: string, labelId: string) {
+        // Verify task exists
+        const task = await this.prisma.task.findUnique({
+            where: { id: taskId, deletedAt: null },
+            include: { column: true },
+        });
+
+        if (!task) {
+            throw new NotFoundException('Task không tồn tại');
+        }
+
+        // Check permission
+        await this.checkProjectPermission(task.column.projectId, userId, [
+            MemberRole.OWNER,
+            MemberRole.ADMIN,
+            MemberRole.MEMBER,
+        ]);
+
+        return this.prisma.taskLabel.delete({
+            where: {
+                taskId_labelId: { taskId, labelId },
+            },
+        }).catch(() => {
+            // Ignore if already deleted
+        });
     }
 
     // ==========================================

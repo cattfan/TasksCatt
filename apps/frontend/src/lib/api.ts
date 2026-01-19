@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+
 
 // Custom event for toast notifications
 export const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {

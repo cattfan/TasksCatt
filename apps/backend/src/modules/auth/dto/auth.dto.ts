@@ -73,5 +73,9 @@ export class AuthResponseDto {
         fullName: string;
         avatarUrl: string | null;
         isAdmin: boolean;
+        emailNotifications: boolean;
+        taskUpdateNotifications: boolean;
+        commentReplyNotifications: boolean;
+        projectInviteNotifications: boolean;
     };
 }

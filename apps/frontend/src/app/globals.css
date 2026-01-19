@@ -44,37 +44,6 @@
     --chart-5: 340 75% 55%;
   }
 
-  .dark {
-    /* Dark Theme 2025-2026 */
-    --background: 240 10% 8%;
-    --foreground: 0 0% 95%;
-    
-    --card: 240 10% 12%;
-    --card-foreground: 0 0% 95%;
-    
-    --popover: 240 10% 12%;
-    --popover-foreground: 0 0% 95%;
-    
-    /* Violet in dark mode */
-    --primary: 262 83% 68%;
-    --primary-foreground: 240 10% 8%;
-    
-    --secondary: 240 10% 16%;
-    --secondary-foreground: 0 0% 90%;
-    
-    --muted: 240 10% 16%;
-    --muted-foreground: 240 5% 55%;
-    
-    --accent: 262 30% 20%;
-    --accent-foreground: 262 83% 75%;
-    
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 0 0% 100%;
-    
-    --border: 240 10% 18%;
-    --input: 240 10% 18%;
-    --ring: 262 83% 68%;
-  }
 }
 
 @layer base {
@@ -153,73 +122,78 @@
   }
 
   .kanban-task {
-    @apply bg-card rounded-lg border shadow-sm p-4 cursor-grab active:cursor-grabbing;
-    @apply hover:shadow-md transition-all duration-200;
+    @apply bg-card rounded-2xl border shadow-sm p-4 cursor-grab active:cursor-grabbing;
+    @apply hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300;
   }
 
   .kanban-task.dragging {
-    @apply opacity-60 ring-2 ring-primary rotate-2 scale-105;
+    @apply opacity-60 ring-2 ring-primary rotate-1 scale-105;
   }
 }
 
-/* Priority Badges */
+/* Glassmorphism Utilities */
+@layer utilities {
+  .glass {
+    @apply bg-background/60 backdrop-blur-md border border-white/10;
+  }
+}
+
+/* Priority Badges - Refined */
 @layer components {
   .badge-low {
-    @apply bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800;
+    @apply bg-emerald-500/10 text-emerald-600 border-emerald-500/20;
   }
   .badge-medium {
-    @apply bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800;
+    @apply bg-amber-500/10 text-amber-600 border-amber-500/20;
   }
   .badge-high {
-    @apply bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800;
+    @apply bg-orange-500/10 text-orange-600 border-orange-500/20;
   }
   .badge-critical {
-    @apply bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800;
+    @apply bg-red-500/10 text-red-600 border-red-500/20;
   }
 }
 
-/* Priority Left Strips - Modern Visual Indicator */
+/* Priority Left Strips - Subtle Glow */
 @layer components {
   .priority-strip-low {
-    @apply border-l-[3px] border-l-emerald-500;
+    @apply border-l-[3px] border-l-emerald-500/80;
   }
   .priority-strip-medium {
-    @apply border-l-[3px] border-l-amber-500;
+    @apply border-l-[3px] border-l-amber-500/80;
   }
   .priority-strip-high {
-    @apply border-l-[3px] border-l-orange-500;
+    @apply border-l-[3px] border-l-orange-500/80;
   }
   .priority-strip-critical {
-    @apply border-l-[3px] border-l-red-500;
+    @apply border-l-[3px] border-l-red-500/80 shadow-[0_0_10px_rgba(239,68,68,0.2)];
   }
 }
 
-/* Task Card - 2025-2026 Soft UI */
+/* Task Card - 2025-2026 Premium UI */
 @layer components {
   .task-card-modern {
-    @apply bg-card rounded-2xl overflow-hidden cursor-pointer;
+    @apply bg-card rounded-2xl overflow-hidden cursor-pointer border border-border/40;
     box-shadow: 
       0 1px 2px rgba(0,0,0,.02),
-      0 2px 4px rgba(0,0,0,.02),
-      0 4px 8px rgba(0,0,0,.03);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+      0 4px 12px rgba(0,0,0,.03);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
   .task-card-modern:hover {
-    transform: translateY(-2px);
+    @apply -translate-y-1 border-primary/30;
     box-shadow: 
-      0 4px 8px rgba(0,0,0,.04),
-      0 8px 16px rgba(0,0,0,.06),
-      0 16px 32px rgba(0,0,0,.04);
+      0 12px 24px rgba(0,0,0,.04),
+      0 20px 40px rgba(0,0,0,.04);
   }
   
   .task-card-modern:focus-visible {
-    @apply outline-none ring-2 ring-primary ring-offset-2;
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
   }
   
   .task-card-modern.dragging {
-    @apply scale-[1.02] rotate-1;
-    box-shadow: 0 12px 32px rgba(0,0,0,.12);
+    @apply scale-[1.05] rotate-2 z-[100];
+    box-shadow: 0 20px 50px rgba(0,0,0,.15);
   }
 }
 

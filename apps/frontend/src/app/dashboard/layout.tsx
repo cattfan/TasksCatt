@@ -28,7 +28,7 @@ import {
     LogOut,
     Menu,
     ChevronLeft,
-    CheckCircle2,
+    ListChecks,
     Bell,
     Search,
     Loader2,
@@ -81,7 +81,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     const isActive = (href: string) => pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex overflow-hidden">
+        <div className="min-h-screen bg-background flex overflow-hidden">
             {/* Sidebar */}
             <aside
                 className={cn(
@@ -91,8 +91,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             >
                 {/* Logo */}
                 <div className="h-16 flex items-center gap-3 px-4 border-b">
-                    <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/25">
-                        <CheckCircle2 className="w-6 h-6 text-primary-foreground" />
+                    <div className="w-10 h-10 bg-foreground rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                        <ListChecks className="w-6 h-6 text-background" />
                     </div>
                     {sidebarOpen && (
                         <span className="text-xl font-bold text-foreground">TasksCatt</span>
@@ -238,7 +238,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 sidebarOpen ? "ml-64" : "ml-[70px]"
             )}>
                 {/* Header */}
-                <header className="sticky top-0 z-40 h-16 bg-card/80 backdrop-blur-sm border-b flex items-center justify-between px-6">
+                <header className="sticky top-0 z-40 h-16 bg-card border-b flex items-center justify-between px-6">
                     <div className="flex items-center gap-4">
                         <Button
                             variant="ghost"
@@ -262,13 +262,36 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
                     <div className="flex items-center gap-3">
                         {/* Notifications */}
-                        <Button variant="ghost" size="icon" className="relative cursor-pointer">
-                            <Bell className="w-5 h-5" />
-                            <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
-                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="relative cursor-pointer">
+                                    <Bell className="w-5 h-5" />
+                                    <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-80">
+                                <DropdownMenuLabel className="flex items-center justify-between">
+                                    <span>Thông báo</span>
+                                    <span className="text-xs text-muted-foreground font-normal">Mới nhất</span>
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <div className="max-h-80 overflow-y-auto">
+                                    {/* Placeholder notifications */}
+                                    <div className="p-4 text-center text-sm text-muted-foreground">
+                                        <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                        <p>Không có thông báo mới</p>
+                                        <p className="text-xs mt-1">Các hoạt động mới sẽ hiển thị ở đây</p>
+                                    </div>
+                                </div>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem asChild>
+                                    <Link href="/dashboard/settings" className="w-full justify-center text-primary cursor-pointer">
+                                        Quản lý thông báo
+                                    </Link>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
 
-                        {/* Theme Toggle */}
-                        <DarkModeToggle />
 
                         {/* User Menu */}
                         <DropdownMenu>

@@ -13,11 +13,20 @@ export interface Project {
     };
     members?: ProjectMember[];
     columns?: Column[];
+    labels?: Label[];
     _count?: {
         members: number;
         columns: number;
     };
 }
+
+export interface Label {
+    id: string;
+    projectId: string;
+    name: string;
+    color: string;
+}
+
 
 export interface ProjectMember {
     id: string;
@@ -51,6 +60,8 @@ export interface Task {
     position: number;
     dueDate: string | null;
     commentsCount?: number;
+    taskLabels?: { label: Label }[];
+    subtasks?: Subtask[];
     assignees: {
         id: string;
         fullName: string;
@@ -62,11 +73,21 @@ export interface Task {
     };
     column?: Column & {
         project?: {
+            id: string;
             name: string;
             slug: string;
         };
     };
 }
+
+export interface Subtask {
+    id: string;
+    title: string;
+    completed: boolean;
+    position: number;
+}
+
+
 
 export interface CreateProjectDto {
     name: string;
@@ -142,7 +163,23 @@ export const projectService = {
     async reorderColumns(projectId: string, columnIds: string[]): Promise<void> {
         await api.post(`/projects/${projectId}/columns/reorder`, { columnIds });
     },
+
+    // Labels
+    async createLabel(projectId: string, dto: { name: string; color: string }): Promise<Label> {
+        const { data } = await api.post<Label>(`/projects/${projectId}/labels`, dto);
+        return data;
+    },
+
+    async updateLabel(labelId: string, dto: { name?: string; color?: string }): Promise<Label> {
+        const { data } = await api.put<Label>(`/projects/labels/${labelId}`, dto);
+        return data;
+    },
+
+    async deleteLabel(labelId: string): Promise<void> {
+        await api.delete(`/projects/labels/${labelId}`);
+    },
 };
+
 
 export const taskService = {
     async getById(id: string): Promise<Task> {
@@ -155,10 +192,18 @@ export const taskService = {
         return data;
     },
 
-    async update(id: string, dto: Partial<CreateTaskDto>): Promise<Task> {
+    async update(id: string, dto: {
+        title?: string;
+        description?: string;
+        priority?: string;
+        columnId?: string;
+        dueDate?: string | null;
+        assigneeIds?: string[];
+    }): Promise<Task> {
         const { data } = await api.patch<Task>(`/tasks/${id}`, dto);
         return data;
     },
+
 
     async delete(id: string): Promise<void> {
         await api.delete(`/tasks/${id}`);
@@ -179,6 +224,16 @@ export const taskService = {
         const { data } = await api.get<Task[]>('/tasks/my-tasks');
         return data;
     },
+
+    // Labels
+    async addLabel(taskId: string, labelId: string): Promise<void> {
+        await api.post(`/tasks/${taskId}/labels`, { labelId });
+    },
+
+    async removeLabel(taskId: string, labelId: string): Promise<void> {
+        await api.delete(`/tasks/${taskId}/labels/${labelId}`);
+    },
 };
+
 
 export default { projectService, taskService };

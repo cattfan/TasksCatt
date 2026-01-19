@@ -15,6 +15,7 @@ import { ActivityModule } from './modules/activity/activity.module';
 import { AttachmentsModule } from './modules/attachments/attachments.module';
 import { LabelsModule } from './modules/labels/labels.module';
 import { SubtasksModule } from './modules/subtasks/subtasks.module';
+import { MailModule } from './modules/mail/mail.module';
 import { GatewayModule } from './gateway/gateway.module';
 
 @Module({
@@ -48,6 +49,7 @@ import { GatewayModule } from './gateway/gateway.module';
         AttachmentsModule,
         LabelsModule,
         SubtasksModule,
+        MailModule,
     ],
     controllers: [],
     providers: [
