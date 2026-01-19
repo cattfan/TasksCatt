@@ -14,7 +14,9 @@ import {
     useSensor,
     DragStartEvent,
     DragEndEvent,
+    DragOverEvent,
 } from '@dnd-kit/core';
+
 import {
     useSortable,
     SortableContext,
@@ -424,6 +426,69 @@ export default function ProjectDetailPage() {
         }
     };
 
+    const handleDragOver = (event: DragOverEvent) => {
+        const { active, over } = event;
+        if (!over || !project) return;
+
+        const activeId = active.id as string;
+        const overId = over.id as string;
+
+        // Skip if dragging columns
+        if (activeId.startsWith('column-')) return;
+
+        const activeTask = findTaskById(activeId);
+        if (!activeTask) return;
+
+        // Find source and destination columns
+        const activeColumn = project.columns?.find(c => c.id === activeTask.columnId);
+
+        // Check if over a column directly
+        let overColumn = project.columns?.find(c => c.id === overId);
+
+        // Or over a task in a column
+        if (!overColumn) {
+            const overTask = findTaskById(overId);
+            if (overTask) {
+                overColumn = project.columns?.find(c => c.id === overTask.columnId);
+            }
+        }
+
+        if (!activeColumn || !overColumn || activeColumn.id === overColumn.id) return;
+
+        // Move task to new column (optimistic update while dragging)
+        setProject(prev => {
+            if (!prev?.columns) return prev;
+
+            const activeColumnIndex = prev.columns.findIndex(c => c.id === activeColumn.id);
+            const overColumnIndex = prev.columns.findIndex(c => c.id === overColumn!.id);
+
+            const newColumns = [...prev.columns];
+
+            // Remove from active column
+            newColumns[activeColumnIndex] = {
+                ...newColumns[activeColumnIndex],
+                tasks: newColumns[activeColumnIndex].tasks?.filter(t => t.id !== activeId) || []
+            };
+
+            // Add to over column
+            const overTaskIndex = overId === overColumn!.id
+                ? (newColumns[overColumnIndex].tasks?.length || 0)
+                : (newColumns[overColumnIndex].tasks?.findIndex(t => t.id === overId) || 0);
+
+            const updatedTask = { ...activeTask, columnId: overColumn!.id };
+            const overTasks = [...(newColumns[overColumnIndex].tasks || [])];
+            overTasks.splice(overTaskIndex, 0, updatedTask);
+
+            newColumns[overColumnIndex] = {
+                ...newColumns[overColumnIndex],
+                tasks: overTasks
+            };
+
+            return { ...prev, columns: newColumns };
+        });
+    };
+
+
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         setActiveTask(null);
@@ -571,8 +636,10 @@ export default function ProjectDetailPage() {
                 sensors={sensors}
                 collisionDetection={closestCorners}
                 onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
             >
+
                 <div className="flex-1 overflow-x-auto pb-4">
                     <SortableContext
                         items={project.columns?.map(c => `column-${c.id}`) || []}
