@@ -138,8 +138,160 @@ function SortableTaskCard({
     );
 }
 
+// Droppable column wrapper for drop targets
+function DroppableColumn({
+    column,
+    children,
+    onAddTask,
+    onDeleteColumn,
+    showAddTask,
+    newTaskTitle,
+    setNewTaskTitle,
+    setShowAddTask,
+    handleAddTask,
+}: {
+    column: Column;
+    children: React.ReactNode;
+    onAddTask: () => void;
+    onDeleteColumn: () => void;
+    showAddTask: boolean;
+    newTaskTitle: string;
+    setNewTaskTitle: (value: string) => void;
+    setShowAddTask: (value: string | null) => void;
+    handleAddTask: (columnId: string) => void;
+}) {
+    const { setNodeRef, isOver } = useDroppable({
+        id: column.id,
+        data: { type: 'column', column },
+    });
+
+    return (
+        <div
+            ref={setNodeRef}
+            className={`flex-shrink-0 w-80 flex flex-col rounded-xl transition-colors ${isOver ? 'bg-primary/10 ring-2 ring-primary/30' : 'bg-muted/50'
+                }`}
+        >
+            {/* Column Header */}
+            <div className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: column.color || '#6b7280' }}
+                    />
+                    <h3 className="font-semibold text-foreground">{column.name}</h3>
+                    <Badge variant="secondary" className="text-xs">
+                        {column.tasks?.length || 0}
+                    </Badge>
+                </div>
+                <div className="flex items-center gap-1">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={onAddTask}
+                        className="h-8 w-8"
+                    >
+                        <Plus className="w-4 h-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={onDeleteColumn}
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </Button>
+                </div>
+            </div>
+
+            {/* Tasks Area */}
+            <div className="flex-1 px-3 pb-3 space-y-3 overflow-y-auto scrollbar-thin min-h-[100px]">
+                {/* Add Task Form */}
+                {showAddTask && (
+                    <Card className="p-4">
+                        <Input
+                            value={newTaskTitle}
+                            onChange={(e) => setNewTaskTitle(e.target.value)}
+                            placeholder="Nhập tiêu đề công việc..."
+                            className="mb-2"
+                            autoFocus
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleAddTask(column.id);
+                                if (e.key === 'Escape') setShowAddTask(null);
+                            }}
+                        />
+                        <div className="flex gap-2">
+                            <Button
+                                size="sm"
+                                onClick={() => handleAddTask(column.id)}
+                            >
+                                Thêm
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setShowAddTask(null)}
+                            >
+                                Hủy
+                            </Button>
+                        </div>
+                    </Card>
+                )}
+
+                {/* Task Cards */}
+                {children}
+            </div>
+        </div>
+    );
+}
+
+// Sortable column wrapper for column reordering
+function SortableColumn({
+    column,
+    children,
+}: {
+    column: Column;
+    children: React.ReactNode;
+}) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({
+        id: `column-${column.id}`,
+        data: { type: 'column', column },
+    });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.7 : 1,
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className="flex-shrink-0"
+        >
+            {/* Drag Handle for Column */}
+            <div
+                {...attributes}
+                {...listeners}
+                className="absolute top-2 left-2 cursor-grab active:cursor-grabbing z-10 p-1 rounded hover:bg-accent/50 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+                <GripVertical className="w-4 h-4 text-muted-foreground" />
+            </div>
+            {children}
+        </div>
+    );
+}
 
 export default function ProjectDetailPage() {
+
+
 
     const params = useParams();
     const router = useRouter();
@@ -153,6 +305,7 @@ export default function ProjectDetailPage() {
     const [newColumnName, setNewColumnName] = useState('');
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [activeTask, setActiveTask] = useState<Task | null>(null);
+    const [activeColumn, setActiveColumn] = useState<Column | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -186,10 +339,35 @@ export default function ProjectDetailPage() {
             setNewColumnName('');
             setShowAddColumn(false);
             loadProject();
+            toast.success('Đã thêm cột mới');
         } catch (error) {
             console.error('Failed to add column:', error);
+            toast.error('Không thể thêm cột');
         }
     };
+
+    const handleDeleteColumn = async (columnId: string) => {
+        if (!project) return;
+        const column = project.columns?.find(c => c.id === columnId);
+        if (!column) return;
+
+        const taskCount = column.tasks?.length || 0;
+        const confirmMessage = taskCount > 0
+            ? `Cột "${column.name}" có ${taskCount} công việc. Bạn có chắc muốn xóa?`
+            : `Bạn có chắc muốn xóa cột "${column.name}"?`;
+
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            await projectService.deleteColumn(project.id, columnId);
+            toast.success('Đã xóa cột');
+            loadProject();
+        } catch (error) {
+            console.error('Failed to delete column:', error);
+            toast.error('Không thể xóa cột');
+        }
+    };
+
 
     const handleAddTask = async (columnId: string) => {
         if (!newTaskTitle.trim()) return;
@@ -226,21 +404,65 @@ export default function ProjectDetailPage() {
 
     const handleDragStart = (event: DragStartEvent) => {
         const { active } = event;
-        const task = findTaskById(active.id as string);
-        if (task) {
-            setActiveTask(task);
+        const activeId = active.id as string;
+
+        // Check if dragging a column
+        if (activeId.startsWith('column-')) {
+            const columnId = activeId.replace('column-', '');
+            const column = project?.columns?.find(c => c.id === columnId);
+            if (column) {
+                setActiveColumn(column);
+                setActiveTask(null);
+            }
+        } else {
+            // Dragging a task
+            const task = findTaskById(activeId);
+            if (task) {
+                setActiveTask(task);
+                setActiveColumn(null);
+            }
         }
     };
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         setActiveTask(null);
+        setActiveColumn(null);
 
         if (!over || !project) return;
 
         const activeId = active.id as string;
         const overId = over.id as string;
 
+        // Handle column reordering
+        if (activeId.startsWith('column-') && overId.startsWith('column-')) {
+            const activeColumnId = activeId.replace('column-', '');
+            const overColumnId = overId.replace('column-', '');
+
+            if (activeColumnId !== overColumnId) {
+                const columns = project.columns || [];
+                const activeIndex = columns.findIndex(c => c.id === activeColumnId);
+                const overIndex = columns.findIndex(c => c.id === overColumnId);
+
+                if (activeIndex !== -1 && overIndex !== -1) {
+                    const newColumns = arrayMove(columns, activeIndex, overIndex);
+                    // Optimistic update
+                    setProject({ ...project, columns: newColumns });
+
+                    try {
+                        await projectService.reorderColumns(project.id, newColumns.map(c => c.id));
+                        toast.success('Đã sắp xếp lại cột');
+                    } catch (error) {
+                        console.error('Failed to reorder columns:', error);
+                        toast.error('Không thể sắp xếp lại cột');
+                        loadProject(); // Revert on error
+                    }
+                }
+            }
+            return;
+        }
+
+        // Handle task dragging
         const task = findTaskById(activeId);
         if (!task) return;
 
@@ -277,6 +499,7 @@ export default function ProjectDetailPage() {
             }
         }
     };
+
 
     if (isLoading) {
         return (
@@ -351,74 +574,29 @@ export default function ProjectDetailPage() {
                 onDragEnd={handleDragEnd}
             >
                 <div className="flex-1 overflow-x-auto pb-4">
-                    <div className="flex gap-6 h-full">
-                        {/* Columns */}
-                        {project.columns?.map((column) => (
-                            <div
-                                key={column.id}
-                                className="flex-shrink-0 w-80 flex flex-col bg-muted/50 rounded-xl"
-                            >
-                                {/* Column Header */}
-                                <div className="p-4 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div
-                                            className="w-3 h-3 rounded-full"
-                                            style={{ backgroundColor: column.color || '#6b7280' }}
-                                        />
-                                        <h3 className="font-semibold text-foreground">{column.name}</h3>
-                                        <Badge variant="secondary" className="text-xs">
-                                            {column.tasks?.length || 0}
-                                        </Badge>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => setShowAddTask(column.id)}
-                                        className="h-8 w-8"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                    </Button>
-                                </div>
+                    <SortableContext
+                        items={project.columns?.map(c => `column-${c.id}`) || []}
+                        strategy={horizontalListSortingStrategy}
+                    >
+                        <div className="flex gap-6 h-full">
+                            {/* Columns */}
+                            {project.columns?.map((column) => (
 
-                                {/* Tasks with SortableContext */}
-                                <SortableContext
-                                    items={column.tasks?.map(t => t.id) || []}
-                                    strategy={verticalListSortingStrategy}
+                                <DroppableColumn
+                                    key={column.id}
+                                    column={column}
+                                    onAddTask={() => setShowAddTask(column.id)}
+                                    onDeleteColumn={() => handleDeleteColumn(column.id)}
+                                    showAddTask={showAddTask === column.id}
+                                    newTaskTitle={newTaskTitle}
+                                    setNewTaskTitle={setNewTaskTitle}
+                                    setShowAddTask={setShowAddTask}
+                                    handleAddTask={handleAddTask}
                                 >
-                                    <div className="flex-1 px-3 pb-3 space-y-3 overflow-y-auto scrollbar-thin">
-                                        {/* Add Task Form */}
-                                        {showAddTask === column.id && (
-                                            <Card className="p-4">
-                                                <Input
-                                                    value={newTaskTitle}
-                                                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                                                    placeholder="Nhập tiêu đề công việc..."
-                                                    className="mb-2"
-                                                    autoFocus
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') handleAddTask(column.id);
-                                                        if (e.key === 'Escape') setShowAddTask(null);
-                                                    }}
-                                                />
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => handleAddTask(column.id)}
-                                                    >
-                                                        Thêm
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        onClick={() => setShowAddTask(null)}
-                                                    >
-                                                        Hủy
-                                                    </Button>
-                                                </div>
-                                            </Card>
-                                        )}
-
-                                        {/* Task Cards */}
+                                    <SortableContext
+                                        items={column.tasks?.map(t => t.id) || []}
+                                        strategy={verticalListSortingStrategy}
+                                    >
                                         {column.tasks?.map((task) => (
                                             <SortableTaskCard
                                                 key={task.id}
@@ -427,56 +605,57 @@ export default function ProjectDetailPage() {
                                                 getPriorityBadge={getPriorityBadge}
                                             />
                                         ))}
+                                    </SortableContext>
+                                </DroppableColumn>
+                            ))}
+
+
+
+                            {/* Add Column */}
+                            <div className="flex-shrink-0 w-80">
+                                {showAddColumn ? (
+                                    <div className="bg-gray-100 rounded-xl p-4">
+                                        <input
+                                            type="text"
+                                            value={newColumnName}
+                                            onChange={(e) => setNewColumnName(e.target.value)}
+                                            placeholder="Enter column name..."
+                                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
+                                            autoFocus
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleAddColumn();
+                                                if (e.key === 'Escape') setShowAddColumn(false);
+                                            }}
+                                        />
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={handleAddColumn}
+                                                className="flex-1 px-3 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600"
+                                            >
+                                                Add Column
+                                            </button>
+                                            <button
+                                                onClick={() => setShowAddColumn(false)}
+                                                className="px-3 py-2 text-gray-500 text-sm font-medium hover:bg-gray-200 rounded-lg"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
                                     </div>
-                                </SortableContext>
+                                ) : (
+                                    <button
+                                        onClick={() => setShowAddColumn(true)}
+                                        className="w-full h-12 flex items-center justify-center gap-2 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Add Column
+                                    </button>
+                                )}
                             </div>
-                        ))}
-
-
-                        {/* Add Column */}
-                        <div className="flex-shrink-0 w-80">
-                            {showAddColumn ? (
-                                <div className="bg-gray-100 rounded-xl p-4">
-                                    <input
-                                        type="text"
-                                        value={newColumnName}
-                                        onChange={(e) => setNewColumnName(e.target.value)}
-                                        placeholder="Enter column name..."
-                                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
-                                        autoFocus
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') handleAddColumn();
-                                            if (e.key === 'Escape') setShowAddColumn(false);
-                                        }}
-                                    />
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={handleAddColumn}
-                                            className="flex-1 px-3 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600"
-                                        >
-                                            Add Column
-                                        </button>
-                                        <button
-                                            onClick={() => setShowAddColumn(false)}
-                                            className="px-3 py-2 text-gray-500 text-sm font-medium hover:bg-gray-200 rounded-lg"
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <button
-                                    onClick={() => setShowAddColumn(true)}
-                                    className="w-full h-12 flex items-center justify-center gap-2 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition"
-                                >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                    </svg>
-                                    Add Column
-                                </button>
-                            )}
                         </div>
-                    </div>
+                    </SortableContext>
                 </div>
 
                 {/* Drag Overlay */}
