@@ -33,74 +33,205 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+
     Plus,
     Trash2,
     ChevronRight,
+    ChevronDown,
     MoreHorizontal,
     GripVertical,
     Settings,
     UserPlus,
     Loader2,
+    Paperclip,
+    Calendar,
+    MessageSquare,
+    Tag,
+    Circle,
+    CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import TaskDetailPanel from '@/components/TaskDetailPanel';
 
-// Separate component for task card content (reused in DragOverlay)
+// Quick action task card matching Linear/Trello UX
 function TaskCardContent({
     task,
     getPriorityBadge,
+    columns,
+    onStatusChange,
+    onQuickAction,
 }: {
     task: Task;
     getPriorityBadge: (priority: string) => { class: string; label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' };
+    columns?: Column[];
+    onStatusChange?: (columnId: string) => void;
+    onQuickAction?: (action: string) => void;
 }) {
     const badge = getPriorityBadge(task.priority);
+    const taskId = `TC-${task.id.slice(0, 4).toUpperCase()}`;
+    const currentColumn = columns?.find(c => c.id === task.columnId);
+
+    // Status color based on column position
+    const getStatusColor = (columnName?: string) => {
+        if (!columnName) return 'bg-gray-100 text-gray-600';
+        const name = columnName.toLowerCase();
+        if (name.includes('done') || name.includes('complete')) return 'bg-green-100 text-green-700';
+        if (name.includes('progress') || name.includes('doing')) return 'bg-blue-100 text-blue-700';
+        if (name.includes('review')) return 'bg-yellow-100 text-yellow-700';
+        return 'bg-gray-100 text-gray-600';
+    };
+
     return (
-        <Card className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow bg-white">
-            <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                    <Badge variant={badge.variant} className="text-xs">
-                        {badge.label}
-                    </Badge>
+        <Card className="cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-white group border-border/40">
+            <CardContent className="p-3">
+                {/* Task ID */}
+                <div className="text-[10px] font-medium text-muted-foreground mb-1">
+                    {taskId}
                 </div>
+
+                {/* Title */}
                 <h4 className="text-sm font-medium text-foreground mb-2 line-clamp-2">
                     {task.title}
                 </h4>
-                {task.description && (
-                    <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-                        {task.description}
-                    </p>
-                )}
-                <div className="flex items-center justify-between text-muted-foreground">
-                    <div className="flex items-center gap-3 text-xs">
-                        <span className="flex items-center gap-1">
-                            <MoreHorizontal className="w-4 h-4" />
-                        </span>
-                    </div>
-                    {task.assignees && task.assignees.length > 0 && (
-                        <Avatar className="w-6 h-6">
-                            <AvatarImage
-                                src={task.assignees[0].avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${task.assignees[0].id}`}
-                                alt={task.assignees[0].fullName}
-                            />
-                            <AvatarFallback>{task.assignees[0].fullName?.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                    )}
 
+                {/* Quick Actions Row */}
+                <div className="flex items-center justify-between gap-2">
+                    {/* Left: Status Dropdown */}
+                    <div className="flex items-center gap-1">
+                        {columns && onStatusChange ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                    <button className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors hover:opacity-80 ${getStatusColor(currentColumn?.name)}`}>
+                                        <Circle className="w-2.5 h-2.5 fill-current" />
+                                        {currentColumn?.name || 'Status'}
+                                        <ChevronDown className="w-3 h-3 opacity-60" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="w-40">
+                                    {columns.map((col) => (
+                                        <DropdownMenuItem
+                                            key={col.id}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onStatusChange(col.id);
+                                            }}
+                                            className="flex items-center gap-2"
+                                        >
+                                            <div
+                                                className="w-2 h-2 rounded-full"
+                                                style={{ backgroundColor: col.color || '#6b7280' }}
+                                            />
+                                            {col.name}
+                                            {col.id === task.columnId && (
+                                                <CheckCircle2 className="w-3 h-3 ml-auto text-primary" />
+                                            )}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            <Badge variant={badge.variant} className="text-xs">
+                                {badge.label}
+                            </Badge>
+                        )}
+                    </div>
+
+                    {/* Right: Quick Action Icons + Assignees */}
+                    <div className="flex items-center gap-1">
+                        {/* Quick Action Icons - visible on hover */}
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onQuickAction?.('attach');
+                                }}
+                                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                title="Đính kèm"
+                            >
+                                <Paperclip className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onQuickAction?.('calendar');
+                                }}
+                                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                title="Ngày hết hạn"
+                            >
+                                <Calendar className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onQuickAction?.('comment');
+                                }}
+                                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                title="Bình luận"
+                            >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onQuickAction?.('tag');
+                                }}
+                                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                title="Nhãn"
+                            >
+                                <Tag className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+
+                        {/* Assignees */}
+                        {task.assignees && task.assignees.length > 0 && (
+                            <div className="flex -space-x-1.5 ml-1">
+                                {task.assignees.slice(0, 2).map((assignee, i) => (
+                                    <Avatar key={assignee.id} className="w-6 h-6 border-2 border-white">
+                                        <AvatarImage
+                                            src={assignee.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${assignee.id}`}
+                                            alt={assignee.fullName}
+                                        />
+                                        <AvatarFallback className="text-[10px]">
+                                            {assignee.fullName?.charAt(0)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                ))}
+                                {task.assignees.length > 2 && (
+                                    <div className="w-6 h-6 rounded-full bg-muted border-2 border-white flex items-center justify-center text-[10px] font-medium text-muted-foreground">
+                                        +{task.assignees.length - 2}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </CardContent>
         </Card>
     );
 }
 
+
 // Sortable wrapper for task cards
 function SortableTaskCard({
     task,
     onClick,
     getPriorityBadge,
+    columns,
+    onStatusChange,
+    onQuickAction,
 }: {
     task: Task;
     onClick: () => void;
     getPriorityBadge: (priority: string) => { class: string; label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' };
+    columns?: Column[];
+    onStatusChange?: (taskId: string, columnId: string) => void;
+    onQuickAction?: (taskId: string, action: string) => void;
 }) {
     const {
         attributes,
@@ -135,9 +266,16 @@ function SortableTaskCard({
             {...listeners}
         >
             <div onClick={handleClick}>
-                <TaskCardContent task={task} getPriorityBadge={getPriorityBadge} />
+                <TaskCardContent
+                    task={task}
+                    getPriorityBadge={getPriorityBadge}
+                    columns={columns}
+                    onStatusChange={onStatusChange ? (colId) => onStatusChange(task.id, colId) : undefined}
+                    onQuickAction={onQuickAction ? (action) => onQuickAction(task.id, action) : undefined}
+                />
             </div>
         </div>
+
     );
 }
 
@@ -384,6 +522,30 @@ export default function ProjectDetailPage() {
             loadProject();
         } catch (error) {
             console.error('Failed to add task:', error);
+        }
+    };
+
+    // Quick status change from task card dropdown
+    const handleQuickStatusChange = async (taskId: string, columnId: string) => {
+        try {
+            const targetColumn = project?.columns?.find(c => c.id === columnId);
+            const targetPos = targetColumn ? (targetColumn.tasks?.length || 0) : 0;
+            await taskService.move(taskId, columnId, targetPos);
+            toast.success('Đã di chuyển công việc');
+            loadProject();
+        } catch (error) {
+            console.error('Failed to change task status:', error);
+            toast.error('Không thể thay đổi trạng thái');
+        }
+    };
+
+    // Quick action handler (open detail panel with specific section)
+    const handleQuickAction = (taskId: string, action: string) => {
+        const task = findTaskById(taskId);
+        if (task) {
+            setSelectedTask(task);
+            // Note: Could pass action to TaskDetailPanel to auto-scroll to section
+            toast.info(`Mở ${action === 'attach' ? 'đính kèm' : action === 'calendar' ? 'lịch' : action === 'comment' ? 'bình luận' : 'nhãn'}`);
         }
     };
 
@@ -671,8 +833,12 @@ export default function ProjectDetailPage() {
                                                 task={task}
                                                 onClick={() => setSelectedTask(task)}
                                                 getPriorityBadge={getPriorityBadge}
+                                                columns={project.columns}
+                                                onStatusChange={handleQuickStatusChange}
+                                                onQuickAction={handleQuickAction}
                                             />
                                         ))}
+
                                     </SortableContext>
                                 </DroppableColumn>
                             ))}
