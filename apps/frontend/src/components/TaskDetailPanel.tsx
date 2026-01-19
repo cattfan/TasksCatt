@@ -130,19 +130,22 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
 
         setIsSaving(true);
         try {
+            // Special handling for column change (move task) - only call move, not update
+            if (field === 'columnId' && value !== task.columnId) {
+                const targetColumn = project.columns?.find(c => c.id === value);
+                const targetPos = targetColumn ? (targetColumn.tasks?.length || 0) : 0;
+                await taskService.move(task.id, value, targetPos);
+                toast.success('Đã di chuyển công việc');
+                onUpdate();
+                return;
+            }
+
             const updateData: any = { [field]: value };
 
             // Special handling for some fields
             if (field === 'dueDate' && value === '') updateData[field] = null;
 
             await taskService.update(task.id, updateData);
-
-            // Special handling for column change (move task)
-            if (field === 'columnId' && value !== task.columnId) {
-                const targetColumn = project.columns?.find(c => c.id === value);
-                const targetPos = targetColumn ? (targetColumn.tasks?.length || 0) : 0;
-                await taskService.move(task.id, value, targetPos);
-            }
 
             toast.success('Đã cập nhật công việc');
             onUpdate();
@@ -160,6 +163,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
             setIsSaving(false);
         }
     };
+
 
     const toggleAssignee = (userId: string) => {
         const currentIds = formData.assigneeIds || [];

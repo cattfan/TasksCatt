@@ -43,6 +43,7 @@ import {
     Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import TaskDetailPanel from '@/components/TaskDetailPanel';
 
 // Separate component for task card content (reused in DragOverlay)
 function TaskCardContent({
@@ -735,82 +736,15 @@ export default function ProjectDetailPage() {
                 </DragOverlay>
             </DndContext>
             {/* Task Detail Panel */}
-            {selectedTask && (
-                <div className="fixed inset-0 bg-black/50 flex justify-end z-50">
-                    <div className="w-full max-w-lg bg-white h-full overflow-y-auto">
-                        <div className="p-6">
-                            {/* Header */}
-                            <div className="flex items-center justify-between mb-6">
-                                <span className="text-sm text-gray-500">TC-{selectedTask.id.slice(0, 3).toUpperCase()}</span>
-                                <button
-                                    onClick={() => setSelectedTask(null)}
-                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
-                                >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            {/* Title */}
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">{selectedTask.title}</h2>
-
-                            {/* Meta */}
-                            <div className="grid grid-cols-2 gap-4 mb-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-500 mb-1">Status</label>
-                                    <div className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium">
-                                        {selectedTask.column?.name || 'To Do'}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-500 mb-1">Priority</label>
-                                    <div className={`px-3 py-2 rounded-lg text-sm font-medium ${getPriorityBadge(selectedTask.priority).class}`}>
-                                        {getPriorityBadge(selectedTask.priority).label}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Description */}
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-gray-500 mb-2">Description</label>
-                                <p className="text-gray-700">
-                                    {selectedTask.description || 'No description provided'}
-                                </p>
-                            </div>
-
-                            {/* Subtasks */}
-                            <div className="mb-6">
-                                <div className="flex items-center justify-between mb-2">
-                                    <label className="text-sm font-medium text-gray-500">Subtasks</label>
-                                    <span className="text-sm text-gray-400">0/0</span>
-                                </div>
-                                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-indigo-500 w-0"></div>
-                                </div>
-                            </div>
-
-                            {/* Comments */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-2">Comments</label>
-                                <div className="flex gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0"></div>
-                                    <div className="flex-1 flex items-center gap-2">
-                                        <input
-                                            type="text"
-                                            placeholder="Add a comment..."
-                                            className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        />
-                                        <button className="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600">
-                                            Send
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            {selectedTask && project && (
+                <TaskDetailPanel
+                    task={selectedTask}
+                    project={project}
+                    onClose={() => setSelectedTask(null)}
+                    onUpdate={() => loadProject()}
+                />
             )}
+
         </div>
     );
 }
