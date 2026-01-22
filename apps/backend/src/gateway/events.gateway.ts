@@ -83,6 +83,9 @@ export class EventsGateway
                 userSockets.add(client.id);
             }
 
+            // Update lastSeenAt in database
+            await this.updateLastSeen(userId);
+
             this.logger.log(`✅ User ${client.userEmail} connected (${client.id})`);
 
             // Auto-join user to their project rooms
@@ -149,6 +152,31 @@ export class EventsGateway
         client.leave(`project:${data.projectId}`);
         this.logger.log(`User ${client.userEmail} left project:${data.projectId}`);
         return { success: true };
+    }
+
+    /**
+     * Heartbeat handler - client sends this periodically to stay "online"
+     */
+    @SubscribeMessage('heartbeat')
+    async handleHeartbeat(@ConnectedSocket() client: AuthenticatedSocket) {
+        if (client.userId) {
+            await this.updateLastSeen(client.userId);
+        }
+        return { success: true, timestamp: new Date().toISOString() };
+    }
+
+    /**
+     * Update user's lastSeenAt timestamp
+     */
+    private async updateLastSeen(userId: string) {
+        try {
+            await this.prisma.user.update({
+                where: { id: userId },
+                data: { lastSeenAt: new Date() },
+            });
+        } catch (error) {
+            this.logger.warn(`Failed to update lastSeenAt for user ${userId}: ${error}`);
+        }
     }
 
     // ==================================================
@@ -249,13 +277,19 @@ export class EventsGateway
      */
     notifyUser(userId: string, event: string, data: Record<string, unknown>) {
         const userSockets = this.connectedUsers.get(userId);
+        console.log('[EventsGateway] notifyUser called for userId:', userId, 'event:', event);
+        console.log('[EventsGateway] User has sockets:', userSockets ? userSockets.size : 0);
+
         if (userSockets) {
             for (const socketId of userSockets) {
+                console.log('[EventsGateway] Emitting to socket:', socketId);
                 this.server.to(socketId).emit(event, {
                     ...data,
                     timestamp: new Date().toISOString(),
                 });
             }
+        } else {
+            console.log('[EventsGateway] User not connected, cannot send notification');
         }
     }
 

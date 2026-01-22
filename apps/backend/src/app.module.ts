@@ -16,6 +16,8 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
 import { LabelsModule } from './modules/labels/labels.module';
 import { SubtasksModule } from './modules/subtasks/subtasks.module';
 import { MailModule } from './modules/mail/mail.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { SystemModule } from './modules/system/system.module';
 import { GatewayModule } from './gateway/gateway.module';
 
 @Module({
@@ -50,6 +52,8 @@ import { GatewayModule } from './gateway/gateway.module';
         LabelsModule,
         SubtasksModule,
         MailModule,
+        NotificationsModule,
+        SystemModule,
     ],
     controllers: [],
     providers: [

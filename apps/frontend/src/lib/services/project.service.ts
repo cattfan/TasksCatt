@@ -5,6 +5,7 @@ export interface Project {
     name: string;
     description: string | null;
     slug: string;
+    prefix?: string;
     ownerId: string;
     createdAt: string;
     owner?: {

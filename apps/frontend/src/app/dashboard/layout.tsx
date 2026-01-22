@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, ReactNode, useState } from 'react';
+import { useEffect, ReactNode, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { DarkModeToggle } from '@/contexts/ThemeContext';
+import { useSocket } from '@/hooks/useSocket';
+import { notificationService, Notification } from '@/lib/services/notification.service';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -28,29 +30,139 @@ import {
     LogOut,
     Menu,
     ChevronLeft,
-    ListChecks,
     Bell,
     Search,
     Loader2,
+    Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatDistanceToNow } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 interface DashboardLayoutProps {
     children: ReactNode;
 }
 
-const navItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/dashboard/projects', label: 'Dự án', icon: FolderKanban },
-    { href: '/dashboard/tasks', label: 'Công việc', icon: ClipboardList },
-    { href: '/dashboard/team', label: 'Nhóm', icon: Users },
-];
+// Navigation items - filtered by user role
+const getNavItems = (isAdmin: boolean) => {
+    if (isAdmin) {
+        // Admin sees specialized dashboard
+        return [
+            { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
+        ];
+    }
+    // Regular users see project-related items
+    return [
+        { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
+        { href: '/dashboard/projects', label: 'Dự án', icon: FolderKanban },
+        { href: '/dashboard/tasks', label: 'Công việc', icon: ClipboardList },
+        { href: '/dashboard/team', label: 'Nhóm', icon: Users },
+    ];
+};
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
     const { user, isLoading, isAuthenticated, logout } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const { getSocket } = useSocket();
+
+    // Fetch notifications
+    const loadNotifications = useCallback(async () => {
+        try {
+            const response = await notificationService.getNotifications(1, 10);
+            setNotifications(response.data);
+            const count = await notificationService.getUnreadCount();
+            setUnreadCount(count);
+        } catch (error) {
+            console.error('Failed to load notifications:', error);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            loadNotifications();
+        }
+    }, [isAuthenticated, loadNotifications]);
+
+    // Listen for real-time notifications
+    useEffect(() => {
+        let socket = getSocket();
+        let retryInterval: NodeJS.Timeout | null = null;
+
+        const handleNewNotification = (data: { notification: Notification }) => {
+            console.log('[Layout] Received new_notification event:', data);
+            setNotifications(prev => [data.notification, ...prev].slice(0, 10));
+            setUnreadCount(prev => prev + 1);
+
+            // Show toast notification
+            console.log('[Layout] Dispatching toast event...');
+            window.dispatchEvent(new CustomEvent('app-toast', {
+                detail: {
+                    message: `${data.notification.title}: ${data.notification.message}`,
+                    type: 'info',
+                },
+            }));
+            console.log('[Layout] Toast event dispatched');
+        };
+
+        const setupListener = () => {
+            socket = getSocket();
+            if (socket?.connected) {
+                socket.on('new_notification', handleNewNotification);
+                if (retryInterval) {
+                    clearInterval(retryInterval);
+                    retryInterval = null;
+                }
+                return true;
+            }
+            return false;
+        };
+
+        // Try immediately
+        if (!setupListener()) {
+            // If socket not ready, retry every second for up to 10 seconds
+            let attempts = 0;
+            retryInterval = setInterval(() => {
+                attempts++;
+                if (setupListener() || attempts >= 10) {
+                    if (retryInterval) clearInterval(retryInterval);
+                }
+            }, 1000);
+        }
+
+        return () => {
+            if (retryInterval) clearInterval(retryInterval);
+            if (socket) {
+                socket.off('new_notification', handleNewNotification);
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAuthenticated]);
+
+    const handleMarkAsRead = async (notificationId: string) => {
+        try {
+            await notificationService.markAsRead(notificationId);
+            setNotifications(prev =>
+                prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+            );
+            setUnreadCount(prev => Math.max(0, prev - 1));
+        } catch (error) {
+            console.error('Failed to mark notification as read:', error);
+        }
+    };
+
+    const handleMarkAllAsRead = async () => {
+        try {
+            await notificationService.markAllAsRead();
+            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+            setUnreadCount(0);
+        } catch (error) {
+            console.error('Failed to mark all notifications as read:', error);
+        }
+    };
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
@@ -90,19 +202,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 )}
             >
                 {/* Logo */}
-                <div className="h-16 flex items-center gap-3 px-4 border-b">
-                    <div className="w-10 h-10 bg-foreground rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
-                        <ListChecks className="w-6 h-6 text-background" />
-                    </div>
-                    {sidebarOpen && (
+                <div className="h-16 flex items-center px-4 border-b">
+                    {sidebarOpen ? (
                         <span className="text-xl font-bold text-foreground">TasksCatt</span>
+                    ) : (
+                        <span className="text-xl font-bold text-foreground">TC</span>
                     )}
                 </div>
 
                 {/* Navigation */}
                 <ScrollArea className="flex-1 py-4">
                     <nav className="px-3 space-y-1">
-                        {navItems.map((item) => {
+                        {getNavItems(user?.isAdmin || false).map((item) => {
                             const Icon = item.icon;
                             const active = isActive(item.href);
 
@@ -146,12 +257,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             );
                         })}
                     </nav>
-                </ScrollArea>
 
-                {/* Bottom Section */}
-                <div className="p-3 border-t space-y-2">
-                    {/* Settings */}
-                    {sidebarOpen ? (
+                    {/* Settings - only for non-admin users */}
+                    {!user?.isAdmin && sidebarOpen && (
                         <Link
                             href="/dashboard/settings"
                             className={cn(
@@ -164,7 +272,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             <Settings className="w-5 h-5" />
                             <span className="font-medium">Cài đặt</span>
                         </Link>
-                    ) : (
+                    )}
+                    {!user?.isAdmin && !sidebarOpen && (
                         <Tooltip delayDuration={0}>
                             <TooltipTrigger asChild>
                                 <Link
@@ -183,53 +292,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                         </Tooltip>
                     )}
 
-                    {/* Admin Panel */}
-                    {user?.isAdmin && sidebarOpen && (
-                        <Link
-                            href="/dashboard/admin"
-                            className={cn(
-                                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors cursor-pointer",
-                                pathname.startsWith('/dashboard/admin')
-                                    ? "bg-primary text-primary-foreground"
-                                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                            )}
-                        >
-                            <ShieldCheck className="w-5 h-5" />
-                            <span className="font-medium">Admin</span>
-                        </Link>
-                    )}
 
-                    <Separator className="my-2" />
-
-                    {/* User Profile */}
-                    <div className={cn(
-                        "flex items-center gap-3 p-2 rounded-lg bg-muted/50",
-                        !sidebarOpen && "justify-center p-2"
-                    )}>
-                        <Avatar className="w-9 h-9 flex-shrink-0">
-                            <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} />
-                            <AvatarFallback>{user?.fullName?.charAt(0) || 'U'}</AvatarFallback>
-                        </Avatar>
-                        {sidebarOpen && (
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground truncate">{user?.fullName}</p>
-                                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Logout Button */}
-                    {sidebarOpen && (
-                        <Button
-                            variant="ghost"
-                            className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={handleLogout}
-                        >
-                            <LogOut className="w-5 h-5 mr-3" />
-                            Đăng xuất
-                        </Button>
-                    )}
-                </div>
+                </ScrollArea>
             </aside>
 
             {/* Main Content */}
@@ -266,27 +330,81 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="relative cursor-pointer">
                                     <Bell className="w-5 h-5" />
-                                    <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
+                                    {unreadCount > 0 && (
+                                        <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
+                                    )}
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-80">
                                 <DropdownMenuLabel className="flex items-center justify-between">
-                                    <span>Thông báo</span>
-                                    <span className="text-xs text-muted-foreground font-normal">Mới nhất</span>
+                                    <span>Thông báo {unreadCount > 0 && `(${unreadCount})`}</span>
+                                    {unreadCount > 0 && (
+                                        <button
+                                            onClick={handleMarkAllAsRead}
+                                            className="text-xs text-primary hover:underline cursor-pointer"
+                                        >
+                                            Đánh dấu tất cả đã đọc
+                                        </button>
+                                    )}
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
                                 <div className="max-h-80 overflow-y-auto">
-                                    {/* Placeholder notifications */}
-                                    <div className="p-4 text-center text-sm text-muted-foreground">
-                                        <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                        <p>Không có thông báo mới</p>
-                                        <p className="text-xs mt-1">Các hoạt động mới sẽ hiển thị ở đây</p>
-                                    </div>
+                                    {notifications.length === 0 ? (
+                                        <div className="p-4 text-center text-sm text-muted-foreground">
+                                            <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                            <p>Không có thông báo mới</p>
+                                            <p className="text-xs mt-1">Các hoạt động mới sẽ hiển thị ở đây</p>
+                                        </div>
+                                    ) : (
+                                        notifications.map((notification) => (
+                                            <div
+                                                key={notification.id}
+                                                className={cn(
+                                                    "flex items-start gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b last:border-0",
+                                                    !notification.isRead && "bg-primary/5"
+                                                )}
+                                                onClick={() => {
+                                                    if (!notification.isRead) {
+                                                        handleMarkAsRead(notification.id);
+                                                    }
+                                                    // Navigate to task if data available
+                                                    const data = notification.data as { projectSlug?: string; taskId?: string } | null;
+                                                    if (data?.projectSlug) {
+                                                        const url = data.taskId
+                                                            ? `/dashboard/projects/${data.projectSlug}?taskId=${data.taskId}`
+                                                            : `/dashboard/projects/${data.projectSlug}`;
+                                                        router.push(url);
+                                                    }
+                                                }}
+                                            >
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={cn(
+                                                        "text-sm",
+                                                        !notification.isRead && "font-medium"
+                                                    )}>
+                                                        {notification.title}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground line-clamp-2">
+                                                        {notification.message}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        {formatDistanceToNow(new Date(notification.createdAt), {
+                                                            addSuffix: true,
+                                                            locale: vi,
+                                                        })}
+                                                    </p>
+                                                </div>
+                                                {!notification.isRead && (
+                                                    <div className="w-2 h-2 bg-primary rounded-full mt-1.5 flex-shrink-0" />
+                                                )}
+                                            </div>
+                                        ))
+                                    )}
                                 </div>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem asChild>
-                                    <Link href="/dashboard/settings" className="w-full justify-center text-primary cursor-pointer">
-                                        Quản lý thông báo
+                                    <Link href="/dashboard/notifications" className="w-full justify-center text-primary cursor-pointer">
+                                        Xem tất cả thông báo
                                     </Link>
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -296,9 +414,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                         {/* User Menu */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="relative h-9 w-9 rounded-full cursor-pointer">
-                                    <Avatar className="h-9 w-9">
-                                        <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} />
+                                <Button variant="ghost" className="relative h-10 w-auto flex items-center gap-3 rounded-full cursor-pointer px-2 pl-3 hover:bg-accent/50">
+                                    <div className="hidden md:flex flex-col items-end mr-1">
+                                        <span className="text-sm font-medium leading-none">{user?.fullName}</span>
+                                        <span className="text-xs text-muted-foreground leading-none mt-1">{user?.email}</span>
+                                    </div>
+                                    <Avatar className="h-9 w-9 border border-border">
+                                        <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${user?.email}`} />
                                         <AvatarFallback>{user?.fullName?.charAt(0) || 'U'}</AvatarFallback>
                                     </Avatar>
                                 </Button>
@@ -318,6 +440,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                     </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
+
                                 <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">
                                     <LogOut className="w-4 h-4 mr-2" />
                                     Đăng xuất
@@ -325,13 +448,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
-                </header>
+                </header >
 
                 {/* Page Content */}
-                <div className="flex-1 p-6 overflow-y-auto overflow-x-hidden w-full max-w-full">
+                < div className="flex-1 p-6 overflow-y-auto overflow-x-hidden w-full max-w-full" >
                     {children}
-                </div>
-            </main>
-        </div>
+                </div >
+            </main >
+        </div >
     );
 }

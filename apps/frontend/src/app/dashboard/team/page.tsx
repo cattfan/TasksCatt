@@ -143,7 +143,7 @@ export default function TeamPage() {
                                 <div className="flex items-start gap-4">
                                     <Avatar className="w-14 h-14">
                                         <AvatarImage
-                                            src={member.user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.userId}`}
+                                            src={member.user?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${member.userId}`}
                                         />
                                         <AvatarFallback>
                                             {member.user?.fullName?.charAt(0) || 'U'}

@@ -65,19 +65,20 @@ import {
 
 
 // Helper function to get Lucide icon for column based on name (Synchronized with page.tsx)
+// Helper function to get Lucide icon for column based on name (Synchronized with page.tsx)
 function getColumnIcon(columnName: string) {
     const name = columnName.toLowerCase();
     const cleanName = name.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
-    if (cleanName.includes('backlog') || cleanName.includes('todo') || cleanName.includes('to do') || cleanName.includes('new')) {
+    if (cleanName.includes('backlog') || cleanName.includes('todo') || cleanName.includes('to do') || cleanName.includes('new') || cleanName.includes('chờ xử lý') || cleanName.includes('cần làm')) {
         return <Inbox className="w-4 h-4" />;
     }
-    if (cleanName.includes('progress') || cleanName.includes('doing') || cleanName.includes('working')) {
+    if (cleanName.includes('progress') || cleanName.includes('doing') || cleanName.includes('working') || cleanName.includes('đang thực hiện') || cleanName.includes('đang làm')) {
         return <PlayCircle className="w-4 h-4" />;
     }
-    if (cleanName.includes('review') || cleanName.includes('testing') || cleanName.includes('qa')) {
+    if (cleanName.includes('review') || cleanName.includes('testing') || cleanName.includes('qa') || cleanName.includes('đang xem xét') || cleanName.includes('kiểm thử')) {
         return <Eye className="w-4 h-4" />;
     }
-    if (cleanName.includes('done') || cleanName.includes('complete') || cleanName.includes('finished')) {
+    if (cleanName.includes('done') || cleanName.includes('complete') || cleanName.includes('finished') || cleanName.includes('hoàn thành') || cleanName.includes('xong')) {
         return <CheckCircle className="w-4 h-4" />;
     }
     return <ListTodo className="w-4 h-4" />;
@@ -541,7 +542,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                                             const member = project.members?.find(m => m.userId === id);
                                                             return (
                                                                 <Avatar key={id} className="w-5 h-5 border-2 border-background ring-1 ring-border">
-                                                                    <AvatarImage src={member?.user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`} />
+                                                                    <AvatarImage src={member?.user?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${id}`} />
                                                                     <AvatarFallback className="text-[10px]">{member?.user?.fullName?.charAt(0)}</AvatarFallback>
                                                                 </Avatar>
                                                             );
@@ -570,7 +571,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                                 <div className="flex items-center gap-2">
                                                     <Avatar className="w-5 h-5">
                                                         <AvatarImage
-                                                            src={member.user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.userId}`}
+                                                            src={member.user?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${member.userId}`}
                                                         />
                                                         <AvatarFallback>
                                                             {member.user?.fullName?.charAt(0)}
@@ -907,7 +908,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                         <div key={comment.id} className="flex gap-3">
                                             <Avatar className="w-8 h-8 flex-shrink-0">
                                                 <AvatarImage
-                                                    src={comment.author?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.author?.id}`}
+                                                    src={comment.author?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${comment.author?.id}`}
                                                 />
                                                 <AvatarFallback>
                                                     {comment.author?.fullName?.charAt(0)}
@@ -994,7 +995,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                     <div className="flex gap-3">
                         <Avatar className="w-8 h-8 flex-shrink-0">
                             <AvatarImage
-                                src={user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`}
+                                src={user?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${user?.email}`}
                             />
                             <AvatarFallback>
                                 {user?.fullName?.charAt(0)}
@@ -1019,7 +1020,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                                         onClick={() => insertMention(member)}
                                                     >
                                                         <Avatar className="w-6 h-6">
-                                                            <AvatarImage src={member.user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.userId}`} />
+                                                            <AvatarImage src={member.user?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${member.userId}`} />
                                                             <AvatarFallback>{member.user?.fullName?.charAt(0)}</AvatarFallback>
                                                         </Avatar>
                                                         <div className="flex flex-col min-w-0">

@@ -126,7 +126,7 @@ export default function SettingsPage() {
 
     const notificationSettings = [
         // { id: 'emailNotifications', label: 'Thông báo email', description: 'Nhận email khi có người nhắc đến bạn' }, // REMOVED as per request
-        { id: 'taskUpdateNotifications', label: 'Cập nhật task', description: 'Nhận thông báo khi task được cập nhật' },
+        { id: 'taskUpdateNotifications', label: 'Cập nhật công việc', description: 'Nhận thông báo khi công việc được cập nhật' },
         { id: 'commentReplyNotifications', label: 'Trả lời bình luận', description: 'Nhận thông báo khi có phản hồi bình luận' },
         { id: 'projectInviteNotifications', label: 'Lời mời dự án', description: 'Nhận thông báo khi được mời tham gia dự án' },
     ];
@@ -172,7 +172,7 @@ export default function SettingsPage() {
                         <div className="flex items-center gap-6">
                             <div className="relative">
                                 <Avatar className="w-24 h-24">
-                                    <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} />
+                                    <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${user?.email}`} />
                                     <AvatarFallback className="text-2xl">{user?.fullName?.charAt(0) || 'U'}</AvatarFallback>
                                 </Avatar>
                                 <Button

@@ -21,7 +21,7 @@ function TaskCommentItem({ comment, currentUserId, onDelete }: TaskCommentItemPr
     return (
         <div className="flex gap-3">
             <Image
-                src={comment.author?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.author?.id}`}
+                src={comment.author?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${comment.author?.id}`}
                 alt={comment.author?.fullName || 'User'}
                 width={32}
                 height={32}

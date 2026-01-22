@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import ToastProvider from '@/components/ToastProvider';
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'] });
 
@@ -34,7 +35,7 @@ export default function RootLayout({
                                 </ErrorBoundary>
                             </TooltipProvider>
                             <Toaster position="top-right" />
-
+                            <ToastProvider />
                         </AuthProvider>
                     </LanguageProvider>
                 </ThemeProvider>

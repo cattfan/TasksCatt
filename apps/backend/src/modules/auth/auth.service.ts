@@ -1,20 +1,30 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDto, LoginDto, AuthResponseDto, ChangePasswordDto, ResetPasswordRequestDto, ResetPasswordDto } from './dto';
+import { ActivityLogService } from '../admin/activity-log.service';
+import { SystemConfigService } from '../admin/system-config.service';
 
 @Injectable()
 export class AuthService {
     constructor(
         private prisma: PrismaService,
         private jwtService: JwtService,
+        private activityLogService: ActivityLogService,
+        private systemConfigService: SystemConfigService,
     ) { }
 
     /**
      * Đăng ký tài khoản mới (UC1)
      */
     async register(dto: RegisterDto): Promise<AuthResponseDto> {
+        // Check if registration is allowed
+        const allowRegistration = await this.systemConfigService.getConfig('ALLOW_REGISTRATION', 'true');
+        if (allowRegistration === 'false') {
+            throw new ForbiddenException('Đăng ký tài khoản mới đang tạm thời bị vô hiệu hóa.');
+        }
+
         const existingUser = await this.prisma.user.findUnique({
             where: { email: dto.email },
         });
@@ -30,11 +40,20 @@ export class AuthService {
                 email: dto.email,
                 passwordHash,
                 fullName: dto.fullName,
-                avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${dto.email}`,
+                avatarUrl: `https://api.dicebear.com/9.x/big-ears/svg?seed=${dto.email}`,
             },
         });
 
         const accessToken = this.generateToken(user.id, user.email);
+
+        // Log user registration
+        await this.activityLogService.log({
+            userId: user.id,
+            action: 'USER_REGISTERED',
+            targetType: 'User',
+            targetId: user.id,
+            details: { email: user.email, fullName: user.fullName },
+        });
 
         return {
             accessToken,
@@ -78,7 +97,22 @@ export class AuthService {
             throw new UnauthorizedException('Tài khoản của bạn đã bị khóa');
         }
 
+        // Check maintenance mode - only allow admin to login
+        const maintenanceMode = await this.systemConfigService.getConfig('MAINTENANCE_MODE', 'false');
+        if (maintenanceMode === 'true' && !user.isAdmin) {
+            throw new ForbiddenException('Hệ thống đang bảo trì. Vui lòng quay lại sau.');
+        }
+
         const accessToken = this.generateToken(user.id, user.email);
+
+        // Log user login
+        await this.activityLogService.log({
+            userId: user.id,
+            action: 'USER_LOGIN',
+            targetType: 'User',
+            targetId: user.id,
+            details: { email: user.email },
+        });
 
         return {
             accessToken,

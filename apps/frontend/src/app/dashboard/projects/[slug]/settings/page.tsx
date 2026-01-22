@@ -168,6 +168,7 @@ export default function ProjectSettingsPage() {
         try {
             await projectService.delete(project.id);
             toast.success(`Đã xóa dự án "${project.name}"`);
+            router.refresh(); // Force refresh cached data
             router.push('/dashboard/projects');
         } catch (error: any) {
             const message = error.response?.data?.message || 'Không thể xóa dự án';
@@ -380,7 +381,7 @@ export default function ProjectSettingsPage() {
                                                 <div className="flex items-center gap-3">
                                                     <Avatar className="w-10 h-10">
                                                         <AvatarImage
-                                                            src={member.user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.userId}`}
+                                                            src={member.user?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${member.userId}`}
                                                         />
                                                         <AvatarFallback>
                                                             {member.user?.fullName?.charAt(0)}

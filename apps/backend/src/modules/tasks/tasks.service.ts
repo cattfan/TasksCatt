@@ -9,6 +9,8 @@ import { MemberRole, TaskPriority, Prisma } from '@prisma/client';
 import { CreateTaskDto, UpdateTaskDto, MoveTaskDto, ReorderTasksDto, SearchTasksDto } from './dto';
 
 import { MailService } from '../mail/mail.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ActivityLogService } from '../admin/activity-log.service';
 
 @Injectable()
 export class TasksService {
@@ -16,6 +18,8 @@ export class TasksService {
         private prisma: PrismaService,
         private eventsGateway: EventsGateway,
         private mailService: MailService,
+        private notificationsService: NotificationsService,
+        private activityLogService: ActivityLogService,
     ) { }
 
     // ==========================================
@@ -176,6 +180,13 @@ export class TasksService {
 
         const position = lastTask ? lastTask.position + 1 : 0;
 
+        // Increment project task counter and get the new task number
+        const updatedProject = await this.prisma.project.update({
+            where: { id: column.projectId },
+            data: { taskCounter: { increment: 1 } },
+            select: { taskCounter: true },
+        });
+
         const task = await this.prisma.task.create({
             data: {
                 title: dto.title,
@@ -183,6 +194,7 @@ export class TasksService {
                 priority: dto.priority || TaskPriority.MEDIUM,
                 columnId: dto.columnId,
                 creatorId: userId,
+                taskNumber: updatedProject.taskCounter,
                 assignees: {
                     connect: dto.assigneeIds?.map(id => ({ id })) || [],
                 },
@@ -208,6 +220,30 @@ export class TasksService {
             task as unknown as Record<string, unknown>,
             { id: userId, fullName: task.creator.fullName || 'Unknown' }
         );
+
+        // Notify assignees (except the creator)
+        if (dto.assigneeIds && dto.assigneeIds.length > 0) {
+            const assigneesToNotify = dto.assigneeIds.filter(id => id !== userId);
+            for (const assigneeId of assigneesToNotify) {
+                this.notificationsService.notifyTaskAssigned(
+                    assigneeId,
+                    task.title,
+                    task.creator.fullName || 'Ai đó',
+                    task.id,
+                    column.project.slug,
+                ).catch(err => console.error('Failed to create assignment notification:', err));
+            }
+        }
+
+        // Log task creation
+        await this.activityLogService.log({
+            projectId: column.projectId,
+            userId,
+            action: 'TASK_CREATED',
+            targetType: 'Task',
+            targetId: task.id,
+            details: { title: task.title, columnName: column.name },
+        });
 
         return task;
     }
@@ -255,7 +291,12 @@ export class TasksService {
     async update(taskId: string, userId: string, dto: UpdateTaskDto) {
         const task = await this.prisma.task.findUnique({
             where: { id: taskId, deletedAt: null },
-            include: { column: true, assignees: true },
+            include: {
+                column: {
+                    include: { project: true }
+                },
+                assignees: true
+            },
         });
 
         if (!task) {
@@ -332,12 +373,38 @@ export class TasksService {
             }
         });
 
+        // Detect new assignees to send "Task Assigned" notification
+        const oldAssigneeIds = new Set(task.assignees.map(a => a.id));
+        const newAssigneeIds = dto.assigneeIds?.filter(id => !oldAssigneeIds.has(id)) || [];
+
         for (const userToNotify of assigneesToNotify) {
+            // Send email
             this.mailService.sendTaskUpdateEmail(
                 userToNotify.email,
                 updatedTask.title,
                 updater?.fullName || 'Ai đó'
             ).catch(err => console.error('Failed to send task update email:', err));
+
+            // Create in-app notification
+            if (newAssigneeIds.includes(userToNotify.id)) {
+                // Sent "Task Assigned" if they were newly added
+                this.notificationsService.notifyTaskAssigned(
+                    userToNotify.id,
+                    updatedTask.title,
+                    updater?.fullName || 'Ai đó',
+                    taskId,
+                    task.column.project.slug,
+                ).catch(err => console.error('Failed to create assignment notification:', err));
+            } else {
+                // Otherwise send "Task Updated"
+                this.notificationsService.notifyTaskUpdate(
+                    userToNotify.id,
+                    updatedTask.title,
+                    updater?.fullName || 'Ai đó',
+                    taskId,
+                    task.column.project.slug,
+                ).catch(err => console.error('Failed to create update notification:', err));
+            }
         }
 
         return updatedTask;
@@ -378,6 +445,16 @@ export class TasksService {
             taskId,
             { id: userId, fullName: 'User' }
         );
+
+        // Log task deletion
+        await this.activityLogService.log({
+            projectId: task.column.projectId,
+            userId,
+            action: 'TASK_DELETED',
+            targetType: 'Task',
+            targetId: taskId,
+            details: { title: task.title },
+        });
 
         return deletedTask;
     }
@@ -501,6 +578,20 @@ export class TasksService {
                 newPosition,
                 { id: userId, fullName: movedTask.creator.fullName || 'Unknown' }
             );
+
+            // Log task movement
+            await this.activityLogService.log({
+                projectId: task.column.projectId,
+                userId,
+                action: 'TASK_MOVED',
+                targetType: 'Task',
+                targetId: taskId,
+                details: {
+                    title: movedTask.title,
+                    fromColumn: oldColumnId,
+                    toColumn: dto.targetColumnId,
+                },
+            });
 
             return movedTask;
         });

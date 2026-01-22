@@ -91,7 +91,7 @@ export default function TaskComments({
             {/* Add Comment */}
             <div className="flex gap-3">
                 <Image
-                    src={userAvatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUserId}`}
+                    src={userAvatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${currentUserId}`}
                     alt={userName || 'User'}
                     width={32}
                     height={32}

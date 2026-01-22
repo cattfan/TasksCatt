@@ -226,26 +226,15 @@ export default function ProjectsPage() {
                 </Card>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredProjects.map((project, index) => {
-                        const categories = ['Design', 'Development', 'Marketing', 'Research'];
-                        const category = categories[index % categories.length];
-                        const colors = categoryColors[category];
-
+                    {filteredProjects.map((project) => {
                         return (
                             <Link
                                 key={project.id}
                                 href={`/dashboard/projects/${project.slug}`}
                                 className="block"
                             >
-                                <Card className={cn(
-                                    "border-0 shadow-sm border-l-4 transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer",
-                                    colors.border,
-                                    colors.bg
-                                )}>
+                                <Card className="border-0 shadow-sm border-l-4 border-l-primary/50 transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer bg-card">
                                     <CardContent className="p-6">
-                                        <Badge variant="outline" className={cn("mb-3", colors.text)}>
-                                            {category}
-                                        </Badge>
                                         <h3 className="text-lg font-semibold text-foreground mb-2 line-clamp-1">
                                             {project.name}
                                         </h3>
@@ -257,7 +246,7 @@ export default function ProjectsPage() {
                                                 {[1, 2, 3].slice(0, Math.min(3, project._count?.members || 1)).map((_, i) => (
                                                     <Avatar key={i} className="w-8 h-8 border-2 border-background">
                                                         <AvatarImage
-                                                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${project.id}-${i}`}
+                                                            src={`https://api.dicebear.com/9.x/big-ears/svg?seed=${project.id}-${i}`}
                                                         />
                                                         <AvatarFallback>M</AvatarFallback>
                                                     </Avatar>
@@ -267,10 +256,6 @@ export default function ProjectsPage() {
                                                         +{(project._count?.members || 1) - 3}
                                                     </div>
                                                 )}
-                                            </div>
-                                            <div className="flex items-center gap-1.5 text-muted-foreground">
-                                                <Clock className="w-3.5 h-3.5" />
-                                                <span className="text-xs">2h trước</span>
                                             </div>
                                         </div>
                                     </CardContent>

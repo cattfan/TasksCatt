@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { projectService, taskService, Project, Task, Column } from '@/lib/services/project.service';
 import { useProjectSocket } from '@/hooks/useProjectSocket';
@@ -85,9 +85,13 @@ import {
     Eye,
     CheckCircle,
     ListTodo,
+    LayoutGrid,
+    List,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import TaskDetailPanel from '@/components/TaskDetailPanel';
+import { TaskListView } from '@/components/task/TaskListView';
 
 // Helper function to get Lucide icon for column based on name
 function getColumnIcon(columnName: string) {
@@ -96,16 +100,24 @@ function getColumnIcon(columnName: string) {
     // Strip emoji from name first (if any)
     const cleanName = name.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
 
-    if (cleanName.includes('backlog') || cleanName.includes('todo') || cleanName.includes('to do') || cleanName.includes('new')) {
+    // Backlog / To Do - includes Vietnamese
+    if (cleanName.includes('backlog') || cleanName.includes('todo') || cleanName.includes('to do') || cleanName.includes('new') ||
+        cleanName.includes('chờ xử lý') || cleanName.includes('cần làm')) {
         return <Inbox className="w-4 h-4" />;
     }
-    if (cleanName.includes('progress') || cleanName.includes('doing') || cleanName.includes('working')) {
+    // In Progress - includes Vietnamese
+    if (cleanName.includes('progress') || cleanName.includes('doing') || cleanName.includes('working') ||
+        cleanName.includes('đang thực hiện') || cleanName.includes('đang làm')) {
         return <PlayCircle className="w-4 h-4" />;
     }
-    if (cleanName.includes('review') || cleanName.includes('testing') || cleanName.includes('qa')) {
+    // Review / Testing - includes Vietnamese
+    if (cleanName.includes('review') || cleanName.includes('testing') || cleanName.includes('qa') ||
+        cleanName.includes('đang xem xét') || cleanName.includes('kiểm thử')) {
         return <Eye className="w-4 h-4" />;
     }
-    if (cleanName.includes('done') || cleanName.includes('complete') || cleanName.includes('finished')) {
+    // Done / Complete - includes Vietnamese
+    if (cleanName.includes('done') || cleanName.includes('complete') || cleanName.includes('finished') ||
+        cleanName.includes('hoàn thành') || cleanName.includes('xong')) {
         return <CheckCircle className="w-4 h-4" />;
     }
     return <ListTodo className="w-4 h-4" />; // Default icon
@@ -126,6 +138,7 @@ function TaskCardContent({
     onQuickAction,
     onDateChange,
     onToggleLabel,
+    isHighlighted,
 }: {
     task: Task & { taskLabels?: { label: any }[] };
     getPriorityBadge: (priority: string) => { class: string; label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' };
@@ -135,6 +148,7 @@ function TaskCardContent({
     onQuickAction?: (action: string) => void;
     onDateChange?: (date: string) => void;
     onToggleLabel?: (labelId: string) => void;
+    isHighlighted?: boolean;
 }) {
     const badge = getPriorityBadge(task.priority);
     const currentColumn = columns?.find(c => c.id === task.columnId);
@@ -152,7 +166,10 @@ function TaskCardContent({
     };
 
     return (
-        <Card className="cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-white group border-border/40 overflow-hidden">
+        <Card className={cn(
+            "cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-white group border-border/40 overflow-hidden",
+            isHighlighted && "animate-task-highlight border-primary ring-2 ring-primary/20 ring-offset-2"
+        )}>
             <CardContent className="p-3">
                 {/* Title */}
                 <h4 className="text-sm font-medium text-foreground mb-2 line-clamp-2">
@@ -324,7 +341,7 @@ function TaskCardContent({
                                 {task.assignees.slice(0, 2).map((assignee, i) => (
                                     <Avatar key={assignee.id} className="w-5 h-5 border-2 border-white">
                                         <AvatarImage
-                                            src={assignee.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${assignee.id}`}
+                                            src={assignee.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${assignee.id}`}
                                             alt={assignee.fullName}
                                         />
                                         <AvatarFallback className="text-[8px]">
@@ -359,6 +376,7 @@ function SortableTaskCard({
     onQuickAction,
     onDateChange,
     onToggleLabel,
+    highlightedTaskId,
 }: {
     task: Task;
     onClick: () => void;
@@ -369,6 +387,7 @@ function SortableTaskCard({
     onQuickAction?: (taskId: string, action: string) => void;
     onDateChange?: (taskId: string, date: string) => void;
     onToggleLabel?: (taskId: string, labelId: string) => void;
+    highlightedTaskId?: string | null;
 }) {
 
     const {
@@ -413,6 +432,7 @@ function SortableTaskCard({
                     onQuickAction={onQuickAction ? (action) => onQuickAction(task.id, action) : undefined}
                     onDateChange={onDateChange ? (date) => onDateChange(task.id, date) : undefined}
                     onToggleLabel={onToggleLabel ? (labelId) => onToggleLabel(task.id, labelId) : undefined}
+                    isHighlighted={task.id === highlightedTaskId}
                 />
 
             </div>
@@ -596,7 +616,12 @@ export default function ProjectDetailPage() {
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteRole, setInviteRole] = useState('MEMBER');
     const [isInviting, setIsInviting] = useState(false);
+    const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
 
+
+    const searchParams = useSearchParams();
+    const taskIdInUrl = searchParams.get('taskId');
+    const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(taskIdInUrl);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -606,10 +631,6 @@ export default function ProjectDetailPage() {
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
-
-    useEffect(() => {
-        loadProject();
-    }, [slug]);
 
     const loadProject = useCallback(async () => {
         try {
@@ -622,6 +643,22 @@ export default function ProjectDetailPage() {
             setIsLoading(false);
         }
     }, [slug, router]);
+
+    useEffect(() => {
+        loadProject();
+    }, [slug, loadProject]);
+
+    // Handle initial task selection from URL
+    useEffect(() => {
+        if (project && taskIdInUrl && !selectedTask) {
+            const task = findTaskById(taskIdInUrl);
+            if (task) {
+                setSelectedTask(task);
+                setHighlightedTaskId(taskIdInUrl);
+            }
+        }
+    }, [project, taskIdInUrl, selectedTask]);
+
 
     // Enable realtime updates via WebSocket
     useProjectSocket(project?.id, loadProject);
@@ -787,10 +824,10 @@ export default function ProjectDetailPage() {
 
     const getPriorityBadge = (priority: string) => {
         const badges: Record<string, { class: string; label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-            LOW: { class: 'badge-low', label: 'Low', variant: 'secondary' },
-            MEDIUM: { class: 'badge-medium', label: 'Medium', variant: 'default' },
-            HIGH: { class: 'badge-high', label: 'High', variant: 'destructive' },
-            CRITICAL: { class: 'badge-critical', label: 'Critical', variant: 'destructive' },
+            LOW: { class: 'badge-low', label: 'Thấp', variant: 'secondary' },
+            MEDIUM: { class: 'badge-medium', label: 'Trung bình', variant: 'default' },
+            HIGH: { class: 'badge-high', label: 'Cao', variant: 'destructive' },
+            CRITICAL: { class: 'badge-critical', label: 'Khẩn cấp', variant: 'destructive' },
         };
         return badges[priority] || badges.MEDIUM;
     };
@@ -1001,7 +1038,7 @@ export default function ProjectDetailPage() {
                         {project.members?.slice(0, 4).map((member, i) => (
                             <div key={member.id} className="w-9 h-9 rounded-full bg-gray-200 border-2 border-white overflow-hidden">
                                 <img
-                                    src={member.user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.userId}`}
+                                    src={member.user?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${member.userId}`}
                                     alt={member.user?.fullName}
                                     className="w-full h-full"
                                 />
@@ -1012,6 +1049,28 @@ export default function ProjectDetailPage() {
                                 +{(project.members?.length || 0) - 4}
                             </div>
                         )}
+                    </div>
+
+                    {/* View Toggle */}
+                    <div className="flex items-center border rounded-lg p-1 bg-muted/30">
+                        <Button
+                            variant={viewMode === 'kanban' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewMode('kanban')}
+                            className="h-8 px-3"
+                        >
+                            <LayoutGrid className="w-4 h-4 mr-2" />
+                            Kanban
+                        </Button>
+                        <Button
+                            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewMode('list')}
+                            className="h-8 px-3"
+                        >
+                            <List className="w-4 h-4 mr-2" />
+                            List
+                        </Button>
                     </div>
 
                     <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
@@ -1071,128 +1130,158 @@ export default function ProjectDetailPage() {
 
             </div>
 
-            {/* Kanban Board with Drag and Drop */}
-            <DndContext
-                sensors={sensors}
-                collisionDetection={closestCorners}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDragEnd={handleDragEnd}
-            >
-
-                <div className="flex-1 overflow-x-auto pb-4">
-                    <SortableContext
-                        items={project.columns?.map(c => `column-${c.id}`) || []}
-                        strategy={horizontalListSortingStrategy}
-                    >
-                        <div className="flex gap-6 h-full">
-                            {/* Columns */}
-                            {project.columns?.map((column) => (
-
-                                <DroppableColumn
-                                    key={column.id}
-                                    column={column}
-                                    onAddTask={() => setShowAddTask(column.id)}
-                                    onDeleteColumn={() => handleDeleteColumn(column.id)}
-                                    showAddTask={showAddTask === column.id}
-                                    newTaskTitle={newTaskTitle}
-                                    setNewTaskTitle={setNewTaskTitle}
-                                    setShowAddTask={setShowAddTask}
-                                    handleAddTask={handleAddTask}
-                                >
-                                    <SortableContext
-                                        items={column.tasks?.map(t => t.id) || []}
-                                        strategy={verticalListSortingStrategy}
-                                    >
-                                        {column.tasks?.map((task) => (
-                                            <SortableTaskCard
-                                                key={task.id}
-                                                task={task}
-                                                onClick={() => setSelectedTask(task)}
-                                                getPriorityBadge={getPriorityBadge}
-                                                columns={project.columns}
-                                                projectLabels={(project as any).labels}
-                                                onStatusChange={handleQuickStatusChange}
-                                                onQuickAction={handleQuickAction}
-                                                onDateChange={(date) => handleQuickDateChange(task.id, date)}
-                                                onToggleLabel={(labelId: string) => handleToggleLabel(task.id, labelId)}
-                                            />
-
-
-
-                                        ))}
-
-                                    </SortableContext>
-                                </DroppableColumn>
-                            ))}
-
-
-
-                            {/* Add Column */}
-                            <div className="flex-shrink-0 w-80">
-                                {showAddColumn ? (
-                                    <div className="bg-gray-100 rounded-xl p-4">
-                                        <input
-                                            type="text"
-                                            value={newColumnName}
-                                            onChange={(e) => setNewColumnName(e.target.value)}
-                                            placeholder="Enter column name..."
-                                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
-                                            autoFocus
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') handleAddColumn();
-                                                if (e.key === 'Escape') setShowAddColumn(false);
-                                            }}
-                                        />
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={handleAddColumn}
-                                                className="flex-1 px-3 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600"
-                                            >
-                                                Add Column
-                                            </button>
-                                            <button
-                                                onClick={() => setShowAddColumn(false)}
-                                                className="px-3 py-2 text-gray-500 text-sm font-medium hover:bg-gray-200 rounded-lg"
-                                            >
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <button
-                                        onClick={() => setShowAddColumn(true)}
-                                        className="w-full h-12 flex items-center justify-center gap-2 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition"
-                                    >
-                                        <Plus className="w-5 h-5" />
-                                        Add Column
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </SortableContext>
+            {/* Content Area */}
+            {/* Content Area */}
+            {viewMode === 'list' ? (
+                <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+                    <TaskListView
+                        columns={project.columns || []}
+                        projectPrefix={project.prefix}
+                        onTaskClick={setSelectedTask}
+                        onNewTask={(columnId) => {
+                            // Directly set state instead of calling undefined function
+                            setShowAddTask(columnId);
+                            setNewTaskTitle('');
+                        }}
+                    />
                 </div>
+            ) : (
+                /* Kanban Board with Drag and Drop */
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCorners}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragEnd={handleDragEnd}
+                >
+
+                    <div className="flex-1 overflow-x-auto pb-4">
+                        <SortableContext
+                            items={project.columns?.map(c => `column-${c.id}`) || []}
+                            strategy={horizontalListSortingStrategy}
+                        >
+                            <div className="flex gap-6 h-full">
+                                {/* Columns */}
+                                {project.columns?.map((column) => (
+
+                                    <DroppableColumn
+                                        key={column.id}
+                                        column={column}
+                                        onAddTask={() => setShowAddTask(column.id)}
+                                        onDeleteColumn={() => handleDeleteColumn(column.id)}
+                                        showAddTask={showAddTask === column.id}
+                                        newTaskTitle={newTaskTitle}
+                                        setNewTaskTitle={setNewTaskTitle}
+                                        setShowAddTask={setShowAddTask}
+                                        handleAddTask={handleAddTask}
+                                    >
+                                        <SortableContext
+                                            items={column.tasks?.map(t => t.id) || []}
+                                            strategy={verticalListSortingStrategy}
+                                        >
+                                            {column.tasks?.map((task) => (
+                                                <SortableTaskCard
+                                                    key={task.id}
+                                                    task={task}
+                                                    onClick={() => {
+                                                        setSelectedTask(task);
+                                                        if (highlightedTaskId === task.id) {
+                                                            setHighlightedTaskId(null);
+                                                            // Remove taskId from URL without full refresh
+                                                            const url = new URL(window.location.href);
+                                                            url.searchParams.delete('taskId');
+                                                            window.history.replaceState({}, '', url.toString());
+                                                        }
+                                                    }}
+                                                    getPriorityBadge={getPriorityBadge}
+                                                    columns={project.columns}
+                                                    projectLabels={(project as any).labels}
+                                                    onStatusChange={handleQuickStatusChange}
+                                                    onQuickAction={handleQuickAction}
+                                                    onDateChange={(date) => handleQuickDateChange(task.id, date)}
+                                                    onToggleLabel={(labelId: string) => handleToggleLabel(task.id, labelId)}
+                                                    highlightedTaskId={highlightedTaskId}
+                                                />
 
 
-                {/* Drag Overlay */}
-                <DragOverlay>
-                    {activeTask && (
-                        <div className="rotate-3 scale-105">
+
+                                            ))}
+
+                                        </SortableContext>
+                                    </DroppableColumn>
+                                ))}
+
+
+
+                                {/* Add Column */}
+                                <div className="flex-shrink-0 w-80">
+                                    {showAddColumn ? (
+                                        <div className="bg-gray-100 rounded-xl p-4">
+                                            <input
+                                                type="text"
+                                                value={newColumnName}
+                                                onChange={(e) => setNewColumnName(e.target.value)}
+                                                placeholder="Enter column name..."
+                                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
+                                                autoFocus
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleAddColumn();
+                                                    if (e.key === 'Escape') setShowAddColumn(false);
+                                                }}
+                                            />
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={handleAddColumn}
+                                                    className="flex-1 px-3 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600"
+                                                >
+                                                    Add Column
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowAddColumn(false)}
+                                                    className="px-3 py-2 text-gray-500 text-sm font-medium hover:bg-gray-200 rounded-lg"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => setShowAddColumn(true)}
+                                            className="w-full h-12 flex items-center justify-center gap-2 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition"
+                                        >
+                                            <Plus className="w-5 h-5" />
+                                            Add Column
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </SortableContext>
+                    </div>
+
+
+                    <DragOverlay>
+                        {activeColumn ? (
+                            <SortableColumn column={activeColumn}>
+                                <div className="space-y-3">
+                                    {activeColumn.tasks?.map(task => (
+                                        <TaskCardContent
+                                            key={task.id}
+                                            task={task}
+                                            getPriorityBadge={getPriorityBadge}
+                                        />
+                                    ))}
+                                </div>
+                            </SortableColumn>
+                        ) : activeTask ? (
                             <TaskCardContent
-                                task={activeTask as any}
+                                task={activeTask}
                                 getPriorityBadge={getPriorityBadge}
-                                columns={project.columns}
-                                projectLabels={(project as any).labels}
-                                onQuickAction={(action) => handleQuickAction(activeTask.id, action)}
-                                onDateChange={(date) => handleQuickDateChange(activeTask.id, date)}
-                                onToggleLabel={(labelId: string) => handleToggleLabel(activeTask.id, labelId)}
+                                isHighlighted={true}
                             />
-
-                        </div>
-                    )}
-                </DragOverlay>
-
-            </DndContext >
+                        ) : null}
+                    </DragOverlay>
+                </DndContext>
+            )}
             {/* Task Detail Panel */}
             {
                 selectedTask && project && (
