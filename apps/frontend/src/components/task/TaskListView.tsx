@@ -165,18 +165,18 @@ export function TaskListView({ columns, projectPrefix = 'TASK', onTaskClick, onN
                                                 )}
 
                                                 {/* Comments Count */}
-                                                {task._count?.comments > 0 && (
+                                                {(task._count?.comments ?? 0) > 0 && (
                                                     <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                                                         <MessageSquare className="w-3 h-3" />
-                                                        {task._count.comments}
+                                                        {task._count?.comments}
                                                     </div>
                                                 )}
 
                                                 {/* Attachments Count */}
-                                                {task._count?.attachments > 0 && (
+                                                {(task._count?.attachments ?? 0) > 0 && (
                                                     <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                                                         <Paperclip className="w-3 h-3" />
-                                                        {task._count.attachments}
+                                                        {task._count?.attachments}
                                                     </div>
                                                 )}
 
