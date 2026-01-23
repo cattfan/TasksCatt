@@ -184,7 +184,7 @@ export function TaskListView({ columns, projectPrefix = 'TASK', onTaskClick, onN
                                                 <div className="flex -space-x-2 shrink-0">
                                                     {task.assignees?.slice(0, 3).map((assignee) => (
                                                         <Avatar key={assignee.id} className="w-6 h-6 border-2 border-background">
-                                                            <AvatarImage src={assignee.avatarUrl} />
+                                                            <AvatarImage src={assignee.avatarUrl ?? undefined} />
                                                             <AvatarFallback className="text-[10px]">
                                                                 {assignee.fullName?.substring(0, 2).toUpperCase()}
                                                             </AvatarFallback>
