@@ -5,6 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import helmet from 'helmet';
 import { GlobalExceptionFilter } from './common/filters';
 import { SanitizePipe } from './common/pipes';
 
@@ -28,11 +29,18 @@ async function bootstrap() {
 
     // Note: Don't use setGlobalPrefix with enableVersioning as it causes route conflicts
 
+    // Security headers (Helmet)
+    app.use(helmet({
+        contentSecurityPolicy: process.env.NODE_ENV === 'production',
+        crossOriginEmbedderPolicy: false, // Needed for file uploads
+    }));
 
-    // CORS
+    // CORS - Strict origin policy
     app.enableCors({
         origin: process.env.FRONTEND_URL || 'http://localhost:1005',
         credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     });
 
     // Global Exception Filter

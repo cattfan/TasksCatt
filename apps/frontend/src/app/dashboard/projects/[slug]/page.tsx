@@ -139,6 +139,7 @@ function TaskCardContent({
     onDateChange,
     onToggleLabel,
     isHighlighted,
+    projectPrefix = 'TASK',
 }: {
     task: Task & { taskLabels?: { label: any }[] };
     getPriorityBadge: (priority: string) => { class: string; label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' };
@@ -149,6 +150,7 @@ function TaskCardContent({
     onDateChange?: (date: string) => void;
     onToggleLabel?: (labelId: string) => void;
     isHighlighted?: boolean;
+    projectPrefix?: string;
 }) {
     const badge = getPriorityBadge(task.priority);
     const currentColumn = columns?.find(c => c.id === task.columnId);
@@ -171,6 +173,11 @@ function TaskCardContent({
             isHighlighted && "animate-task-highlight border-primary ring-2 ring-primary/20 ring-offset-2"
         )}>
             <CardContent className="p-3">
+                {/* Task ID */}
+                <span className="text-[10px] font-mono text-muted-foreground block mb-1">
+                    {projectPrefix}-{task.taskNumber}
+                </span>
+
                 {/* Title */}
                 <h4 className="text-sm font-medium text-foreground mb-2 line-clamp-2">
                     {task.title}
@@ -377,6 +384,7 @@ function SortableTaskCard({
     onDateChange,
     onToggleLabel,
     highlightedTaskId,
+    projectPrefix,
 }: {
     task: Task;
     onClick: () => void;
@@ -388,6 +396,7 @@ function SortableTaskCard({
     onDateChange?: (taskId: string, date: string) => void;
     onToggleLabel?: (taskId: string, labelId: string) => void;
     highlightedTaskId?: string | null;
+    projectPrefix?: string;
 }) {
 
     const {
@@ -425,6 +434,7 @@ function SortableTaskCard({
             <div onClick={handleClick}>
                 <TaskCardContent
                     task={task}
+                    projectPrefix={projectPrefix}
                     getPriorityBadge={getPriorityBadge}
                     columns={columns}
                     projectLabels={projectLabels}
@@ -1132,6 +1142,7 @@ export default function ProjectDetailPage() {
 
             {/* Content Area */}
             {/* Content Area */}
+            {/* Content Area */}
             {viewMode === 'list' ? (
                 <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
                     <TaskListView
@@ -1139,9 +1150,18 @@ export default function ProjectDetailPage() {
                         projectPrefix={project.prefix}
                         onTaskClick={setSelectedTask}
                         onNewTask={(columnId) => {
-                            // Directly set state instead of calling undefined function
                             setShowAddTask(columnId);
                             setNewTaskTitle('');
+                        }}
+                        onPriorityChange={async (taskId, priority) => {
+                            try {
+                                await taskService.update(taskId, { priority });
+                                toast.success('Đã cập nhật mức độ ưu tiên');
+                                loadProject();
+                            } catch (error) {
+                                console.error('Failed to update priority:', error);
+                                toast.error('Không thể cập nhật mức độ ưu tiên');
+                            }
                         }}
                     />
                 </div>
@@ -1183,6 +1203,7 @@ export default function ProjectDetailPage() {
                                                 <SortableTaskCard
                                                     key={task.id}
                                                     task={task}
+                                                    projectPrefix={project.prefix}
                                                     onClick={() => {
                                                         setSelectedTask(task);
                                                         if (highlightedTaskId === task.id) {
@@ -1267,6 +1288,7 @@ export default function ProjectDetailPage() {
                                         <TaskCardContent
                                             key={task.id}
                                             task={task}
+                                            projectPrefix={project.prefix}
                                             getPriorityBadge={getPriorityBadge}
                                         />
                                     ))}
@@ -1275,6 +1297,7 @@ export default function ProjectDetailPage() {
                         ) : activeTask ? (
                             <TaskCardContent
                                 task={activeTask}
+                                projectPrefix={project.prefix}
                                 getPriorityBadge={getPriorityBadge}
                                 isHighlighted={true}
                             />

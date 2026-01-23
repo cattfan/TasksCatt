@@ -36,6 +36,14 @@ export class CreateProjectDto {
     @MaxLength(100)
     @Matches(/^[a-z0-9-]+$/, { message: 'Slug chỉ chứa chữ thường, số và dấu gạch ngang' })
     slug?: string;
+
+    @ApiPropertyOptional({ example: 'ECOM', description: 'Tiền tố cho mã công việc (VD: ECOM-1, ECOM-2)' })
+    @IsOptional()
+    @IsString()
+    @MinLength(2)
+    @MaxLength(10)
+    @Matches(/^[A-Z0-9-]+$/, { message: 'Prefix chỉ chứa chữ in hoa, số và dấu gạch ngang' })
+    prefix?: string;
 }
 
 export class UpdateProjectDto {

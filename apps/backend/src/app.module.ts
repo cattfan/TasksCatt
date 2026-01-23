@@ -29,11 +29,19 @@ import { GatewayModule } from './gateway/gateway.module';
             validationSchema,
         }),
 
-        // Rate limiting - 10 requests per 60 seconds for login
-        ThrottlerModule.forRoot([{
-            ttl: 60000,  // 1 minute
-            limit: 60,   // 60 requests per minute globally
-        }]),
+        // Rate limiting - Dual-tier strategy
+        ThrottlerModule.forRoot([
+            {
+                name: 'short',
+                ttl: 1000,  // 1 second
+                limit: 10,  // Max 10 requests per second
+            },
+            {
+                name: 'medium',
+                ttl: 60000, // 1 minute
+                limit: 100, // Max 100 requests per minute
+            },
+        ]),
 
         // Core modules
         PrismaModule,

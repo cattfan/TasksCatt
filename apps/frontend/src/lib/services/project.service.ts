@@ -59,6 +59,7 @@ export interface Task {
     description: string | null;
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
     position: number;
+    taskNumber: number;
     dueDate: string | null;
     commentsCount?: number;
     taskLabels?: { label: Label }[];

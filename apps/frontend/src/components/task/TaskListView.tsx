@@ -17,12 +17,19 @@ import {
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface TaskListViewProps {
     columns: Column[];
     projectPrefix?: string;
     onTaskClick: (task: Task) => void;
     onNewTask: (columnId: string) => void;
+    onPriorityChange?: (taskId: string, priority: string) => void;
 }
 
 const priorityConfig = {
@@ -32,7 +39,7 @@ const priorityConfig = {
     CRITICAL: { label: 'Khẩn cấp', color: 'bg-red-100 text-red-700' },
 };
 
-export function TaskListView({ columns, projectPrefix = 'TASK', onTaskClick, onNewTask }: TaskListViewProps) {
+export function TaskListView({ columns, projectPrefix = 'TASK', onTaskClick, onNewTask, onPriorityChange }: TaskListViewProps) {
     const [expandedColumns, setExpandedColumns] = useState<Set<string>>(
         new Set(columns.map(c => c.id))
     );
@@ -51,6 +58,11 @@ export function TaskListView({ columns, projectPrefix = 'TASK', onTaskClick, onN
 
     const getTaskId = (task: Task) => {
         return `${projectPrefix}-${task.taskNumber || '?'}`;
+    };
+
+    const handlePriorityClick = (e: React.MouseEvent, taskId: string, priority: string) => {
+        e.stopPropagation(); // Prevent opening task detail
+        onPriorityChange?.(taskId, priority);
     };
 
     return (
@@ -94,7 +106,7 @@ export function TaskListView({ columns, projectPrefix = 'TASK', onTaskClick, onN
                                             <div
                                                 key={task.id}
                                                 onClick={() => onTaskClick(task)}
-                                                className="flex items-center gap-4 p-3 hover:bg-muted/30 cursor-pointer transition-colors"
+                                                className="flex items-center gap-4 p-3 hover:bg-muted/30 cursor-pointer transition-colors group"
                                             >
                                                 {/* Task ID */}
                                                 <span className="text-xs font-mono text-muted-foreground w-24 shrink-0">
@@ -118,15 +130,31 @@ export function TaskListView({ columns, projectPrefix = 'TASK', onTaskClick, onN
                                                     {column.name}
                                                 </Badge>
 
-                                                {/* Priority */}
-                                                <Badge
-                                                    className={cn(
-                                                        'shrink-0 text-xs',
-                                                        priorityConfig[task.priority as keyof typeof priorityConfig]?.color
-                                                    )}
-                                                >
-                                                    {priorityConfig[task.priority as keyof typeof priorityConfig]?.label || task.priority}
-                                                </Badge>
+                                                {/* Priority Dropdown */}
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                                        <Badge
+                                                            className={cn(
+                                                                'shrink-0 text-xs cursor-pointer hover:opacity-80 transition-opacity',
+                                                                priorityConfig[task.priority as keyof typeof priorityConfig]?.color
+                                                            )}
+                                                        >
+                                                            {priorityConfig[task.priority as keyof typeof priorityConfig]?.label || task.priority}
+                                                        </Badge>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        {Object.entries(priorityConfig).map(([key, config]) => (
+                                                            <DropdownMenuItem
+                                                                key={key}
+                                                                onClick={(e) => handlePriorityClick(e, task.id, key)}
+                                                                className="flex items-center gap-2"
+                                                            >
+                                                                <div className={`w-2 h-2 rounded-full ${key === 'LOW' ? 'bg-gray-500' : key === 'MEDIUM' ? 'bg-blue-500' : key === 'HIGH' ? 'bg-amber-500' : 'bg-red-500'}`} />
+                                                                {config.label}
+                                                            </DropdownMenuItem>
+                                                        ))}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
 
                                                 {/* Due Date */}
                                                 {task.dueDate && (

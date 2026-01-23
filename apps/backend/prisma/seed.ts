@@ -67,7 +67,7 @@ async function main() {
             name: 'Website E-commerce Bán Hàng',
             description: 'Xây dựng website thương mại điện tử full-stack với React và NestJS. Bao gồm giỏ hàng, thanh toán VNPay, quản lý kho.',
             slug: 'website-ecommerce-ban-hang',
-            prefix: 'ECOM',
+            prefix: 'TASK',
             ownerId: user1.id,
         },
     });
@@ -78,7 +78,7 @@ async function main() {
             name: 'App Theo dõi Sức khỏe',
             description: 'Ứng dụng mobile theo dõi chỉ số sức khỏe hàng ngày: cân nặng, lượng nước, giấc ngủ, bước chân.',
             slug: 'app-theo-doi-suc-khoe',
-            prefix: 'HEALTH',
+            prefix: 'TASK',
             ownerId: user1.id,
         },
     });
@@ -89,7 +89,7 @@ async function main() {
             name: 'HRM - Quản lý Nhân sự',
             description: 'Hệ thống quản lý nhân sự cho doanh nghiệp: chấm công, nghỉ phép, tính lương, đánh giá KPI.',
             slug: 'hrm-quan-ly-nhan-su',
-            prefix: 'HRM',
+            prefix: 'TASK',
             ownerId: user2.id,
         },
     });
@@ -144,25 +144,30 @@ async function main() {
     // ========== TASKS FOR PROJECT 1: E-COMMERCE (15 tasks) ==========
     const [p1Backlog, p1Doing, p1Review, p1Done] = p1Cols;
     const p1Tasks = [
-        // Backlog (5 tasks)
-        { columnId: p1Backlog.id, creatorId: admin.id, title: 'Thiết kế database schema', description: 'Thiết kế ERD cho sản phẩm, đơn hàng, khách hàng, kho.', priority: TaskPriority.HIGH, position: 0 },
-        { columnId: p1Backlog.id, creatorId: user1.id, title: 'Tích hợp VNPay thanh toán', description: 'Kết nối API VNPay để xử lý thanh toán online.', priority: TaskPriority.CRITICAL, position: 1 },
-        { columnId: p1Backlog.id, creatorId: user2.id, title: 'Viết unit test cho Cart', description: 'Test các function thêm/xóa/update giỏ hàng.', priority: TaskPriority.LOW, position: 2 },
-        { columnId: p1Backlog.id, creatorId: user3.id, title: 'Setup CI/CD pipeline', description: 'Cấu hình GitHub Actions để auto deploy.', priority: TaskPriority.MEDIUM, position: 3 },
-        { columnId: p1Backlog.id, creatorId: admin.id, title: 'Tối ưu SEO cho trang sản phẩm', description: 'Thêm meta tags, structured data cho Google.', priority: TaskPriority.LOW, position: 4 },
-        // Đang làm (4 tasks)
+        // PHASE 1: SETUP & DESIGN (Done)
+        { columnId: p1Done.id, creatorId: admin.id, title: 'Setup dự án NestJS + Prisma', description: 'Khởi tạo cấu trúc backend chuẩn.', priority: TaskPriority.CRITICAL, position: 0 },
+        { columnId: p1Done.id, creatorId: user2.id, title: 'Setup Next.js frontend', description: 'Cấu hình ESLint, Tailwind, folder structure.', priority: TaskPriority.MEDIUM, position: 1 },
+        { columnId: p1Done.id, creatorId: user1.id, title: 'Thiết kế UI/UX Figma', description: 'Hoàn thành wireframe và mockup.', priority: TaskPriority.HIGH, position: 2 },
+        { columnId: p1Done.id, creatorId: admin.id, title: 'Thiết kế database schema', description: 'Thiết kế ERD cho sản phẩm, đơn hàng, khách hàng, kho.', priority: TaskPriority.HIGH, position: 3 },
+
+        // PHASE 2: IMPLEMENTATION (Review/Doing)
+        { columnId: p1Review.id, creatorId: user1.id, title: 'Review code authentication', description: 'Kiểm tra bảo mật JWT, refresh token.', priority: TaskPriority.CRITICAL, position: 0 },
+        { columnId: p1Review.id, creatorId: user3.id, title: 'Setup CI/CD pipeline', description: 'Cấu hình GitHub Actions để auto deploy.', priority: TaskPriority.MEDIUM, position: 1 },
+
+        // features
         { columnId: p1Doing.id, creatorId: user1.id, title: 'Xây dựng trang chi tiết sản phẩm', description: 'UI hiển thị ảnh, giá, mô tả, đánh giá sản phẩm.', priority: TaskPriority.HIGH, position: 0 },
         { columnId: p1Doing.id, creatorId: user2.id, title: 'Làm chức năng tìm kiếm sản phẩm', description: 'Full-text search với Elasticsearch hoặc Algolia.', priority: TaskPriority.MEDIUM, position: 1 },
         { columnId: p1Doing.id, creatorId: user3.id, title: 'Xây dựng giỏ hàng (Cart)', description: 'Lưu giỏ hàng localStorage + sync với server.', priority: TaskPriority.HIGH, position: 2 },
         { columnId: p1Doing.id, creatorId: admin.id, title: 'Viết API quản lý kho', description: 'CRUD cho inventory, cảnh báo hết hàng.', priority: TaskPriority.MEDIUM, position: 3 },
-        // Review (3 tasks)
-        { columnId: p1Review.id, creatorId: user1.id, title: 'Review code authentication', description: 'Kiểm tra bảo mật JWT, refresh token.', priority: TaskPriority.CRITICAL, position: 0 },
-        { columnId: p1Review.id, creatorId: user2.id, title: 'Test giao diện responsive', description: 'Kiểm tra UI trên mobile, tablet, desktop.', priority: TaskPriority.LOW, position: 1 },
+        { columnId: p1Doing.id, creatorId: user1.id, title: 'Tích hợp VNPay thanh toán', description: 'Kết nối API VNPay để xử lý thanh toán online.', priority: TaskPriority.CRITICAL, position: 4 },
+
+        // PHASE 3: TESTING (Review)
         { columnId: p1Review.id, creatorId: user3.id, title: 'Kiểm tra hiệu năng API', description: 'Load test với k6 hoặc Artillery.', priority: TaskPriority.MEDIUM, position: 2 },
-        // Done (3 tasks)
-        { columnId: p1Done.id, creatorId: admin.id, title: 'Setup dự án NestJS + Prisma', description: 'Khởi tạo cấu trúc backend chuẩn.', priority: TaskPriority.CRITICAL, position: 0 },
-        { columnId: p1Done.id, creatorId: user1.id, title: 'Thiết kế UI/UX Figma', description: 'Hoàn thành wireframe và mockup.', priority: TaskPriority.HIGH, position: 1 },
-        { columnId: p1Done.id, creatorId: user2.id, title: 'Setup Next.js frontend', description: 'Cấu hình ESLint, Tailwind, folder structure.', priority: TaskPriority.MEDIUM, position: 2 },
+        { columnId: p1Review.id, creatorId: user2.id, title: 'Test giao diện responsive', description: 'Kiểm tra UI trên mobile, tablet, desktop.', priority: TaskPriority.LOW, position: 3 },
+
+        // PHASE 4: BACKLOG (To do)
+        { columnId: p1Backlog.id, creatorId: user2.id, title: 'Viết unit test cho Cart', description: 'Test các function thêm/xóa/update giỏ hàng.', priority: TaskPriority.LOW, position: 0 },
+        { columnId: p1Backlog.id, creatorId: admin.id, title: 'Tối ưu SEO cho trang sản phẩm', description: 'Thêm meta tags, structured data cho Google.', priority: TaskPriority.LOW, position: 1 },
     ];
 
     // ========== TASKS FOR PROJECT 2: HEALTH APP (12 tasks) ==========
@@ -206,6 +211,7 @@ async function main() {
     ];
 
     // Create all tasks with task numbers
+    // Reset counter to 0, tasks will be created in chronological order of the array above
     let p1Counter = 0, p2Counter = 0, p3Counter = 0;
 
     for (const taskData of p1Tasks) {
@@ -233,14 +239,19 @@ async function main() {
     const allUsers = [admin, user1, user2, user3];
 
     for (let i = 0; i < 15; i++) {
-        await prisma.activityLog.create({
-            data: {
-                userId: allUsers[Math.floor(Math.random() * allUsers.length)].id,
-                action: logActions[Math.floor(Math.random() * logActions.length)],
-                projectId: i % 3 === 0 ? null : [project1.id, project2.id, project3.id][i % 3],
-                details: { seed: true },
-            },
-        });
+        const randomUser = allUsers[Math.floor(Math.random() * allUsers.length)];
+        const randomAction = logActions[Math.floor(Math.random() * logActions.length)];
+
+        if (randomUser && randomAction) {
+            await prisma.activityLog.create({
+                data: {
+                    userId: randomUser.id,
+                    action: randomAction,
+                    projectId: i % 3 === 0 ? null : [project1.id, project2.id, project3.id][i % 3],
+                    details: { seed: true },
+                },
+            });
+        }
     }
 
     console.log('📝 Created sample activity logs');

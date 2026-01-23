@@ -6,7 +6,7 @@ import { AdminDashboard } from '@/components/dashboard/AdminDashboard';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function DashboardPage() {
-    const { user, loading } = useAuth();
+    const { user, isLoading: loading } = useAuth();
 
     if (loading) {
         return (
