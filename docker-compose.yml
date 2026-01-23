@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: taskscatt_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: taskscatt
+      POSTGRES_PASSWORD: TasksCatt@2026!Secure
+      POSTGRES_DB: taskscatt_prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - taskscatt_net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U taskscatt" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API (NestJS)
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: taskscatt_backend
+    restart: always
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://taskscatt:TasksCatt@2026!Secure@postgres:5432/taskscatt_prod
+      BACKEND_PORT: 5001
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production-2026
+      JWT_EXPIRES_IN: 7d
+      FRONTEND_URL: https://taskscatt.yourdomain.com
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "5001"
+    volumes:
+      - ./apps/backend/uploads:/app/uploads
+    networks:
+      - taskscatt_net
+
+  # Frontend Web (Next.js)
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    container_name: taskscatt_frontend
+    restart: always
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://taskscatt.yourdomain.com/api/v1
+    depends_on:
+      - backend
+    expose:
+      - "3000"
+    networks:
+      - taskscatt_net
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: taskscatt_nginx
+    restart: always
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - /etc/letsencrypt:/etc/letsencrypt
+      - /var/www/certbot:/var/www/certbot
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - taskscatt_net
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  taskscatt_net:
+    driver: bridge

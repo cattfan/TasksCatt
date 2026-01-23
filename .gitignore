@@ -41,3 +41,11 @@ apps/backend/prisma/migrations/
 
 # Misc
 *.tsbuildinfo
+
+# Docker volumes (local data)
+postgres_data/
+
+# Sensitive server information - NEVER COMMIT
+server-credentials.txt
+.env.production
+deploy-config.json
