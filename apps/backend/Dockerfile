@@ -6,16 +6,14 @@ RUN npm install -g pnpm
 
 WORKDIR /app
 
-# Copy package files
+# Copy all essential files for install
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
-COPY apps/backend/package.json ./apps/backend/
-
-# Install dependencies
-RUN pnpm install --frozen-lockfile
-
-# Copy source code
+# Copy workspace packages and the specific app
+COPY packages ./packages
 COPY apps/backend ./apps/backend
-COPY .env ./.env
+
+# Install dependencies (including workspace deps)
+RUN pnpm install --frozen-lockfile
 
 # Generate Prisma Client
 WORKDIR /app/apps/backend
@@ -24,22 +22,20 @@ RUN pnpm prisma generate
 # Build application
 RUN pnpm build
 
+# Deploy production deps to a temporary folder
+# This creates a folder with package.json and fully resolved node_modules
+RUN pnpm --filter=backend --prod deploy /prod/backend
+
 # Production stage
 FROM node:20-alpine
 
-# Install pnpm
-RUN npm install -g pnpm
-
 WORKDIR /app
 
-# Copy package files for production install
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/backend/package.json ./apps/backend/
+# Copy the deployed production dependencies
+COPY --from=builder /prod/backend/node_modules ./node_modules
+COPY --from=builder /prod/backend/package.json ./package.json
 
-# Install production dependencies only
-RUN pnpm install --prod --frozen-lockfile
-
-# Copy built application
+# Copy built application code
 COPY --from=builder /app/apps/backend/dist ./dist
 COPY --from=builder /app/apps/backend/prisma ./prisma
 COPY --from=builder /app/.env ./.env
