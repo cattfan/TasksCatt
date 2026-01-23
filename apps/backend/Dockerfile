@@ -32,11 +32,16 @@ RUN npm install -g pnpm
 
 WORKDIR /app
 
-# Copy built files and dependencies
+# Copy package files for production install
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/backend/package.json ./apps/backend/
+
+# Install production dependencies only
+RUN pnpm install --prod --frozen-lockfile
+
+# Copy built application
 COPY --from=builder /app/apps/backend/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/backend/prisma ./prisma
-COPY --from=builder /app/apps/backend/package.json ./package.json
 COPY --from=builder /app/.env ./.env
 
 # Create uploads directory
