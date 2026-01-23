@@ -80,6 +80,11 @@ export interface Task {
             slug: string;
         };
     };
+    _count?: {
+        comments: number;
+        attachments: number;
+        subtasks: number;
+    };
 }
 
 export interface Subtask {
