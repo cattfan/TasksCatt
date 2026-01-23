@@ -59,11 +59,7 @@ export class ProjectsService {
                 name: dto.name,
                 description: dto.description,
                 slug,
-                name: dto.name,
-                description: dto.description,
-                slug,
                 prefix: 'TASK',
-                ownerId: userId,
                 ownerId: userId,
                 members: {
                     create: {
