@@ -28,6 +28,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
 # Copy built application
 # Standalone mode bundles everything needed (including node_modules)
