@@ -9,7 +9,7 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001
  * Custom hook for Socket.io connection
  * Handles authentication, connection lifecycle, and reconnection
  */
-export function useSocket() {
+export function useSocket(): { getSocket: () => Socket | null; disconnect: () => void } {
     const socketRef = useRef<Socket | null>(null);
 
     const getSocket = useCallback(() => {
