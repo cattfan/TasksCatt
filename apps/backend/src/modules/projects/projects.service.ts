@@ -18,10 +18,10 @@ import {
 
 // Default columns khi tạo project mới
 const DEFAULT_COLUMNS = [
-    { name: 'Backlog', color: '#6B7280', position: 0 },
-    { name: 'In Progress', color: '#3B82F6', position: 1 },
-    { name: 'Review', color: '#F59E0B', position: 2 },
-    { name: 'Done', color: '#10B981', position: 3 },
+    { name: 'Cần làm', color: '#6B7280', position: 0 },
+    { name: 'Đang làm', color: '#3B82F6', position: 1 },
+    { name: 'Đang xem xét', color: '#F59E0B', position: 2 },
+    { name: 'Hoàn thành', color: '#10B981', position: 3 },
 ];
 
 import { MailService } from '../mail/mail.service';

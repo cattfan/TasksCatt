@@ -150,9 +150,6 @@ export function UserDashboard() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Button variant="outline" onClick={loadData}>
-                        Làm mới
-                    </Button>
                     <Button asChild className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
                         <Link href="/dashboard/projects/new">
                             <Plus className="w-4 h-4 mr-2" />
@@ -310,7 +307,7 @@ export function UserDashboard() {
                                                     {project.name}
                                                 </h4>
                                                 <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                                                    {project._count?.columns ? `${project._count.columns} cột` : 'Chưa có bảng'}
+                                                    {project.description || `${project._count?.columns || 0} cột · ${project._count?.members || 1} thành viên`}
                                                 </p>
                                             </div>
                                         </Link>

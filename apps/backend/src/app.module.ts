@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { validationSchema } from './config/validation';
@@ -19,6 +19,9 @@ import { MailModule } from './modules/mail/mail.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SystemModule } from './modules/system/system.module';
 import { GatewayModule } from './gateway/gateway.module';
+import { LoggerModule } from './common/logger/logger.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 
 @Module({
     imports: [
@@ -42,6 +45,10 @@ import { GatewayModule } from './gateway/gateway.module';
                 limit: 100, // Max 100 requests per minute
             },
         ]),
+
+        // Logging & Monitoring
+        LoggerModule,
+        MetricsModule,
 
         // Core modules
         PrismaModule,
@@ -70,6 +77,12 @@ import { GatewayModule } from './gateway/gateway.module';
             provide: APP_GUARD,
             useClass: ThrottlerGuard,
         },
+        // Global metrics interceptor
+        {
+            provide: APP_INTERCEPTOR,
+            useClass: MetricsInterceptor,
+        },
     ],
 })
 export class AppModule { }
+

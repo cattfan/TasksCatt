@@ -202,7 +202,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 )}
             >
                 {/* Logo */}
-                <div className="h-16 flex items-center px-4 border-b">
+                <div className="h-16 flex items-center justify-center border-b">
                     {sidebarOpen ? (
                         <span className="text-xl font-bold text-foreground">TasksCatt</span>
                     ) : (
@@ -256,41 +256,41 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                 </Link>
                             );
                         })}
-                    </nav>
 
-                    {/* Settings - only for non-admin users */}
-                    {!user?.isAdmin && sidebarOpen && (
-                        <Link
-                            href="/dashboard/settings"
-                            className={cn(
-                                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors cursor-pointer",
-                                pathname.startsWith('/dashboard/settings')
-                                    ? "bg-primary text-primary-foreground"
-                                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                            )}
-                        >
-                            <Settings className="w-5 h-5" />
-                            <span className="font-medium">Cài đặt</span>
-                        </Link>
-                    )}
-                    {!user?.isAdmin && !sidebarOpen && (
-                        <Tooltip delayDuration={0}>
-                            <TooltipTrigger asChild>
-                                <Link
-                                    href="/dashboard/settings"
-                                    className={cn(
-                                        "flex items-center justify-center w-11 h-11 rounded-lg transition-colors cursor-pointer",
-                                        pathname.startsWith('/dashboard/settings')
-                                            ? "bg-primary text-primary-foreground"
-                                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                                    )}
-                                >
-                                    <Settings className="w-5 h-5" />
-                                </Link>
-                            </TooltipTrigger>
-                            <TooltipContent side="right">Cài đặt</TooltipContent>
-                        </Tooltip>
-                    )}
+                        {/* Settings - only for non-admin users */}
+                        {!user?.isAdmin && sidebarOpen && (
+                            <Link
+                                href="/dashboard/settings"
+                                className={cn(
+                                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors cursor-pointer",
+                                    pathname.startsWith('/dashboard/settings')
+                                        ? "bg-primary text-primary-foreground"
+                                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                )}
+                            >
+                                <Settings className="w-5 h-5" />
+                                <span className="font-medium">Cài đặt</span>
+                            </Link>
+                        )}
+                        {!user?.isAdmin && !sidebarOpen && (
+                            <Tooltip delayDuration={0}>
+                                <TooltipTrigger asChild>
+                                    <Link
+                                        href="/dashboard/settings"
+                                        className={cn(
+                                            "flex items-center justify-center w-11 h-11 rounded-lg transition-colors cursor-pointer",
+                                            pathname.startsWith('/dashboard/settings')
+                                                ? "bg-primary text-primary-foreground"
+                                                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                        )}
+                                    >
+                                        <Settings className="w-5 h-5" />
+                                    </Link>
+                                </TooltipTrigger>
+                                <TooltipContent side="right">Cài đặt</TooltipContent>
+                            </Tooltip>
+                        )}
+                    </nav>
 
 
                 </ScrollArea>

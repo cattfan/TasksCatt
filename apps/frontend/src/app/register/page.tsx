@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
+
 import { CheckCircle2, User, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2, ShieldCheck, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -19,7 +19,7 @@ export default function RegisterPage() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [agreeTerms, setAgreeTerms] = useState(false);
+
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -54,10 +54,7 @@ export default function RegisterPage() {
             return;
         }
 
-        if (!agreeTerms) {
-            setError('Vui lòng đồng ý với Điều khoản dịch vụ');
-            return;
-        }
+
 
         setIsLoading(true);
 
@@ -214,25 +211,7 @@ export default function RegisterPage() {
                                 </div>
                             </div>
 
-                            {/* Terms Checkbox */}
-                            <div className="flex items-start gap-3">
-                                <Checkbox
-                                    id="terms"
-                                    checked={agreeTerms}
-                                    onCheckedChange={(checked) => setAgreeTerms(checked as boolean)}
-                                    className="mt-0.5"
-                                />
-                                <label htmlFor="terms" className="text-sm text-muted-foreground leading-relaxed cursor-pointer">
-                                    Tôi đồng ý với{' '}
-                                    <Link href="#" className="text-primary hover:text-primary/80 font-medium">
-                                        Điều khoản dịch vụ
-                                    </Link>
-                                    {' '}và{' '}
-                                    <Link href="#" className="text-primary hover:text-primary/80 font-medium">
-                                        Chính sách bảo mật
-                                    </Link>
-                                </label>
-                            </div>
+
 
                             {/* Submit Button */}
                             <Button

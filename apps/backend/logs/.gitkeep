@@ -1,0 +1,3 @@
+# logs/
+# Keep this directory for Winston logs
+*.log
