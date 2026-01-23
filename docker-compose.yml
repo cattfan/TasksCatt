@@ -52,7 +52,7 @@ services:
       context: .
       dockerfile: apps/frontend/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: https://taskscatt.click/api
+        NEXT_PUBLIC_API_URL: https://taskscatt.click
         NEXT_PUBLIC_BACKEND_URL: https://taskscatt.click
     container_name: taskscatt_frontend
     restart: always
