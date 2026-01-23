@@ -24,19 +24,17 @@ RUN pnpm build
 # Production stage
 FROM node:20-alpine
 
-# Install pnpm
-RUN npm install -g pnpm
-
 WORKDIR /app
 
-# Copy built files
-COPY --from=builder /app/apps/frontend/.next ./.next
-COPY --from=builder /app/apps/frontend/node_modules ./node_modules
-COPY --from=builder /app/apps/frontend/public ./public
-COPY --from=builder /app/apps/frontend/package.json ./package.json
-COPY --from=builder /app/apps/frontend/next.config.js ./next.config.js
-COPY --from=builder /app/.env ./.env
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Copy built application
+# Standalone mode bundles everything needed (including node_modules)
+COPY --from=builder /app/apps/frontend/.next/standalone ./
+COPY --from=builder /app/apps/frontend/.next/static ./apps/frontend/.next/static
+COPY --from=builder /app/apps/frontend/public ./apps/frontend/public
 
 EXPOSE 3000
 
-CMD ["pnpm", "start"]
+CMD ["node", "apps/frontend/server.js"]
