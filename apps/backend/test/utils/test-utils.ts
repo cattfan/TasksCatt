@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../src/app.module';
 import * as request from 'supertest';
+import { vi } from 'vitest';
 
 /**
  * Creates a fully configured NestJS test application
@@ -86,5 +87,5 @@ export const mockPrismaService = {
         delete: vi.fn(),
         updateMany: vi.fn(),
     },
-    $transaction: vi.fn((callback) => callback(mockPrismaService)),
+    $transaction: vi.fn((callback: any) => callback(mockPrismaService)),
 };

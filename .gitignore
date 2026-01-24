@@ -49,3 +49,6 @@ postgres_data/
 server-credentials.txt
 .env.production
 deploy-config.json
+
+# Markdown files
+*.md

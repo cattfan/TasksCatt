@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -135,6 +135,48 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
     const [showMentions, setShowMentions] = useState(false);
     const [cursorPosition, setCursorPosition] = useState(0);
 
+    // Track mounted state
+    const isMounted = useRef(false);
+    useEffect(() => {
+        isMounted.current = true;
+        return () => { isMounted.current = false; };
+    }, []);
+
+    // Update form data when task changes
+    useEffect(() => {
+        setFormData({
+            title: task.title,
+            description: task.description || '',
+            priority: task.priority,
+            columnId: task.columnId,
+            assigneeIds: task.assignees?.map(a => a.id) || [],
+            dueDate: task.dueDate ? task.dueDate.split('T')[0] : '',
+        });
+        setSubtasks(task.subtasks || []);
+        setTaskLabels(task.taskLabels?.map(tl => tl.label) || []);
+    }, [task]);
+
+    const loadComments = useCallback(async () => {
+        if (!task.id) return;
+        setIsLoadingComments(true);
+        try {
+            const data = await commentService.getByTask(task.id);
+            if (isMounted.current) {
+                setComments(data);
+            }
+        } catch (error) {
+            console.error('Failed to load comments:', error);
+        } finally {
+            if (isMounted.current) {
+                setIsLoadingComments(false);
+            }
+        }
+    }, [task.id]);
+
+    useEffect(() => {
+        loadComments();
+    }, [loadComments]);
+
     const handleFileUpload = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
         setIsUploading(true);
@@ -183,34 +225,6 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
     };
 
 
-
-    useEffect(() => {
-        setFormData({
-            title: task.title,
-            description: task.description || '',
-            priority: task.priority,
-            columnId: task.columnId,
-            assigneeIds: task.assignees?.map(a => a.id) || [],
-            dueDate: task.dueDate ? task.dueDate.split('T')[0] : '',
-        });
-        setSubtasks(task.subtasks || []);
-        setTaskLabels(task.taskLabels?.map(tl => tl.label) || []);
-    }, [task]);
-
-    useEffect(() => {
-        loadComments();
-    }, [task.id]);
-
-    const loadComments = async () => {
-        try {
-            const data = await commentService.getByTask(task.id);
-            setComments(data);
-        } catch (error) {
-            console.error('Failed to load comments:', error);
-        } finally {
-            setIsLoadingComments(false);
-        }
-    };
 
     const updateTaskField = async (field: string, value: any) => {
         // Skip if value hasn't changed (basic check)
@@ -312,6 +326,8 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
         }
     };
 
+
+
     const handleAddComment = async () => {
         if (!newComment.trim() && pendingAttachments.length === 0) return;
         try {
@@ -393,11 +409,20 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
 
     const completedSubtasks = subtasks.filter(st => st.completed).length;
     const subtaskProgress = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0;
-
     return (
-        <div className="fixed inset-0 bg-black/50 flex justify-end z-50" onClick={onClose}>
+        <div
+            className="fixed inset-0 bg-black/50 flex justify-end z-[100] cursor-pointer"
+            onClick={(e) => {
+                // Ensure we only close if clicking the overlay itself
+                if (e.target === e.currentTarget) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onClose();
+                }
+            }}
+        >
             <div
-                className="w-full max-w-lg bg-background h-full overflow-hidden flex flex-col shadow-xl animate-in slide-in-from-right"
+                className="w-full max-w-lg bg-background h-full overflow-hidden flex flex-col shadow-xl animate-in slide-in-from-right cursor-default"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
@@ -1123,6 +1148,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                         </div>
                     </div>
                 </div>
+
             </div>
         </div>
     );

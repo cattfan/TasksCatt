@@ -46,7 +46,7 @@ export function UserDashboard() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [user?.avatarUrl]);
 
     useEffect(() => {
         loadData();
@@ -293,12 +293,12 @@ export function UserDashboard() {
                                                         {category}
                                                     </span>
                                                     <div className="flex -space-x-2">
-                                                        {[1, 2, 3].slice(0, project._count?.members || 1).map((_, i) => (
-                                                            <Avatar key={i} className="w-6 h-6 border-2 border-background">
+                                                        {project.members?.slice(0, 3).map((member) => (
+                                                            <Avatar key={member.id} className="w-6 h-6 border-2 border-background">
                                                                 <AvatarImage
-                                                                    src={`https://api.dicebear.com/9.x/big-ears/svg?seed=${project.id}-${i}`}
+                                                                    src={member.user?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${member.userId}`}
                                                                 />
-                                                                <AvatarFallback>M</AvatarFallback>
+                                                                <AvatarFallback>{member.user?.fullName?.charAt(0)}</AvatarFallback>
                                                             </Avatar>
                                                         ))}
                                                     </div>

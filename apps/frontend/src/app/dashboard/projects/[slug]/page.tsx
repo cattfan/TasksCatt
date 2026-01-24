@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { projectService, taskService, Project, Task, Column } from '@/lib/services/project.service';
 import { useProjectSocket } from '@/hooks/useProjectSocket';
+import { useAuth } from '@/contexts/AuthContext';
 import {
     DndContext,
     DragOverlay,
@@ -86,12 +87,12 @@ import {
     CheckCircle,
     ListTodo,
     LayoutGrid,
-    List,
+
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import TaskDetailPanel from '@/components/TaskDetailPanel';
-import { TaskListView } from '@/components/task/TaskListView';
+
 
 // Helper function to get Lucide icon for column based on name
 function getColumnIcon(columnName: string) {
@@ -481,7 +482,7 @@ function DroppableColumn({
     return (
         <div
             ref={setNodeRef}
-            className={`flex-shrink-0 w-80 flex flex-col rounded-xl transition-colors ${isOver ? 'bg-primary/10 ring-2 ring-primary/30' : 'bg-muted/50'
+            className={`flex-shrink-0 w-[270px] flex flex-col rounded-xl transition-colors ${isOver ? 'bg-primary/10 ring-2 ring-primary/30' : 'bg-muted/50'
                 }`}
         >
             {/* Column Header */}
@@ -626,7 +627,10 @@ export default function ProjectDetailPage() {
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteRole, setInviteRole] = useState('MEMBER');
     const [isInviting, setIsInviting] = useState(false);
-    const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+    const { user } = useAuth();
+    const currentUserRole = project?.members?.find(m => m.userId === user?.id)?.role;
+    const canInviteAdmin = currentUserRole === 'ADMIN' || currentUserRole === 'OWNER';
+
 
 
     const searchParams = useSearchParams();
@@ -1017,7 +1021,7 @@ export default function ProjectDetailPage() {
             <div className="flex items-center justify-center h-[calc(100vh-8rem)]">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-gray-500">Loading project...</p>
+                    <p className="text-gray-500">Đang tải dự án...</p>
                 </div>
             </div>
         );
@@ -1033,7 +1037,7 @@ export default function ProjectDetailPage() {
             <div className="flex items-center justify-between mb-6 flex-shrink-0">
                 <div>
                     <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-                        <Link href="/dashboard/projects" className="hover:text-indigo-500">Projects</Link>
+                        <Link href="/dashboard/projects" className="hover:text-indigo-500">Dự án</Link>
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
@@ -1061,33 +1065,13 @@ export default function ProjectDetailPage() {
                         )}
                     </div>
 
-                    {/* View Toggle */}
-                    <div className="flex items-center border rounded-lg p-1 bg-muted/30">
-                        <Button
-                            variant={viewMode === 'kanban' ? 'secondary' : 'ghost'}
-                            size="sm"
-                            onClick={() => setViewMode('kanban')}
-                            className="h-8 px-3"
-                        >
-                            <LayoutGrid className="w-4 h-4 mr-2" />
-                            Kanban
-                        </Button>
-                        <Button
-                            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                            size="sm"
-                            onClick={() => setViewMode('list')}
-                            className="h-8 px-3"
-                        >
-                            <List className="w-4 h-4 mr-2" />
-                            List
-                        </Button>
-                    </div>
+                    {/* View Toggle Removed - Defaulting to Kanban */}
 
                     <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
                         <DialogTrigger asChild>
                             <button className="btn-secondary flex items-center gap-2">
                                 <Users className="w-5 h-5" />
-                                Invite
+                                Mời thành viên
                             </button>
                         </DialogTrigger>
                         <DialogContent>
@@ -1117,7 +1101,9 @@ export default function ProjectDetailPage() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="MEMBER">Thành viên</SelectItem>
-                                            <SelectItem value="ADMIN">Quản trị viên</SelectItem>
+                                            {canInviteAdmin && (
+                                                <SelectItem value="ADMIN">Quản trị viên</SelectItem>
+                                            )}
                                         </SelectContent>
 
                                     </Select>
@@ -1143,168 +1129,146 @@ export default function ProjectDetailPage() {
             {/* Content Area */}
             {/* Content Area */}
             {/* Content Area */}
-            {viewMode === 'list' ? (
-                <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
-                    <TaskListView
-                        columns={project.columns || []}
-                        projectPrefix={project.prefix}
-                        onTaskClick={setSelectedTask}
-                        onNewTask={(columnId) => {
-                            setShowAddTask(columnId);
-                            setNewTaskTitle('');
-                        }}
-                        onPriorityChange={async (taskId, priority) => {
-                            try {
-                                await taskService.update(taskId, { priority });
-                                toast.success('Đã cập nhật mức độ ưu tiên');
-                                loadProject();
-                            } catch (error) {
-                                console.error('Failed to update priority:', error);
-                                toast.error('Không thể cập nhật mức độ ưu tiên');
-                            }
-                        }}
-                    />
-                </div>
-            ) : (
-                /* Kanban Board with Drag and Drop */
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCorners}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDragEnd={handleDragEnd}
-                >
 
-                    <div className="flex-1 overflow-x-auto pb-4">
-                        <SortableContext
-                            items={project.columns?.map(c => `column-${c.id}`) || []}
-                            strategy={horizontalListSortingStrategy}
-                        >
-                            <div className="flex gap-6 h-full">
-                                {/* Columns */}
-                                {project.columns?.map((column) => (
 
-                                    <DroppableColumn
-                                        key={column.id}
-                                        column={column}
-                                        onAddTask={() => setShowAddTask(column.id)}
-                                        onDeleteColumn={() => handleDeleteColumn(column.id)}
-                                        showAddTask={showAddTask === column.id}
-                                        newTaskTitle={newTaskTitle}
-                                        setNewTaskTitle={setNewTaskTitle}
-                                        setShowAddTask={setShowAddTask}
-                                        handleAddTask={handleAddTask}
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCorners}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
+            >
+
+                <div className="flex-1 overflow-x-auto pb-4">
+                    <SortableContext
+                        items={project.columns?.map(c => `column-${c.id}`) || []}
+                        strategy={horizontalListSortingStrategy}
+                    >
+                        <div className="flex gap-3 h-full">
+                            {/* Columns */}
+                            {project.columns?.map((column) => (
+
+                                <DroppableColumn
+                                    key={column.id}
+                                    column={column}
+                                    onAddTask={() => setShowAddTask(column.id)}
+                                    onDeleteColumn={() => handleDeleteColumn(column.id)}
+                                    showAddTask={showAddTask === column.id}
+                                    newTaskTitle={newTaskTitle}
+                                    setNewTaskTitle={setNewTaskTitle}
+                                    setShowAddTask={setShowAddTask}
+                                    handleAddTask={handleAddTask}
+                                >
+                                    <SortableContext
+                                        items={column.tasks?.map(t => t.id) || []}
+                                        strategy={verticalListSortingStrategy}
                                     >
-                                        <SortableContext
-                                            items={column.tasks?.map(t => t.id) || []}
-                                            strategy={verticalListSortingStrategy}
-                                        >
-                                            {column.tasks?.map((task) => (
-                                                <SortableTaskCard
-                                                    key={task.id}
-                                                    task={task}
-                                                    projectPrefix={project.prefix}
-                                                    onClick={() => {
-                                                        setSelectedTask(task);
-                                                        if (highlightedTaskId === task.id) {
-                                                            setHighlightedTaskId(null);
-                                                            // Remove taskId from URL without full refresh
-                                                            const url = new URL(window.location.href);
-                                                            url.searchParams.delete('taskId');
-                                                            window.history.replaceState({}, '', url.toString());
-                                                        }
-                                                    }}
-                                                    getPriorityBadge={getPriorityBadge}
-                                                    columns={project.columns}
-                                                    projectLabels={(project as any).labels}
-                                                    onStatusChange={handleQuickStatusChange}
-                                                    onQuickAction={handleQuickAction}
-                                                    onDateChange={(date) => handleQuickDateChange(task.id, date)}
-                                                    onToggleLabel={(labelId: string) => handleToggleLabel(task.id, labelId)}
-                                                    highlightedTaskId={highlightedTaskId}
-                                                />
-
-
-
-                                            ))}
-
-                                        </SortableContext>
-                                    </DroppableColumn>
-                                ))}
-
-
-
-                                {/* Add Column */}
-                                <div className="flex-shrink-0 w-80">
-                                    {showAddColumn ? (
-                                        <div className="bg-gray-100 rounded-xl p-4">
-                                            <input
-                                                type="text"
-                                                value={newColumnName}
-                                                onChange={(e) => setNewColumnName(e.target.value)}
-                                                placeholder="Enter column name..."
-                                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
-                                                autoFocus
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') handleAddColumn();
-                                                    if (e.key === 'Escape') setShowAddColumn(false);
+                                        {column.tasks?.map((task) => (
+                                            <SortableTaskCard
+                                                key={task.id}
+                                                task={task}
+                                                projectPrefix={project.prefix}
+                                                onClick={() => {
+                                                    setSelectedTask(task);
+                                                    if (highlightedTaskId === task.id) {
+                                                        setHighlightedTaskId(null);
+                                                        // Remove taskId from URL without full refresh
+                                                        const url = new URL(window.location.href);
+                                                        url.searchParams.delete('taskId');
+                                                        window.history.replaceState({}, '', url.toString());
+                                                    }
                                                 }}
+                                                getPriorityBadge={getPriorityBadge}
+                                                columns={project.columns}
+                                                projectLabels={(project as any).labels}
+                                                onStatusChange={handleQuickStatusChange}
+                                                onQuickAction={handleQuickAction}
+                                                onDateChange={(date) => handleQuickDateChange(task.id, date)}
+                                                onToggleLabel={(labelId: string) => handleToggleLabel(task.id, labelId)}
+                                                highlightedTaskId={highlightedTaskId}
                                             />
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={handleAddColumn}
-                                                    className="flex-1 px-3 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600"
-                                                >
-                                                    Add Column
-                                                </button>
-                                                <button
-                                                    onClick={() => setShowAddColumn(false)}
-                                                    className="px-3 py-2 text-gray-500 text-sm font-medium hover:bg-gray-200 rounded-lg"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => setShowAddColumn(true)}
-                                            className="w-full h-12 flex items-center justify-center gap-2 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition"
-                                        >
-                                            <Plus className="w-5 h-5" />
-                                            Add Column
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </SortableContext>
-                    </div>
 
 
-                    <DragOverlay>
-                        {activeColumn ? (
-                            <SortableColumn column={activeColumn}>
-                                <div className="space-y-3">
-                                    {activeColumn.tasks?.map(task => (
-                                        <TaskCardContent
-                                            key={task.id}
-                                            task={task}
-                                            projectPrefix={project.prefix}
-                                            getPriorityBadge={getPriorityBadge}
+
+                                        ))}
+
+                                    </SortableContext>
+                                </DroppableColumn>
+                            ))}
+
+
+
+                            {/* Add Column */}
+                            <div className="flex-shrink-0 w-[270px]">
+                                {showAddColumn ? (
+                                    <div className="bg-gray-100 rounded-xl p-4">
+                                        <input
+                                            type="text"
+                                            value={newColumnName}
+                                            onChange={(e) => setNewColumnName(e.target.value)}
+                                            placeholder="Nhập tên cột..."
+                                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
+                                            autoFocus
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleAddColumn();
+                                                if (e.key === 'Escape') setShowAddColumn(false);
+                                            }}
                                         />
-                                    ))}
-                                </div>
-                            </SortableColumn>
-                        ) : activeTask ? (
-                            <TaskCardContent
-                                task={activeTask}
-                                projectPrefix={project.prefix}
-                                getPriorityBadge={getPriorityBadge}
-                                isHighlighted={true}
-                            />
-                        ) : null}
-                    </DragOverlay>
-                </DndContext>
-            )}
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={handleAddColumn}
+                                                className="flex-1 px-3 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600"
+                                            >
+                                                Thêm cột
+                                            </button>
+                                            <button
+                                                onClick={() => setShowAddColumn(false)}
+                                                className="px-3 py-2 text-gray-500 text-sm font-medium hover:bg-gray-200 rounded-lg"
+                                            >
+                                                Hủy
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setShowAddColumn(true)}
+                                        className="w-full h-12 flex items-center justify-center gap-2 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition"
+                                    >
+                                        <Plus className="w-5 h-5" />
+                                        Thêm cột
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </SortableContext>
+                </div>
+
+
+                <DragOverlay>
+                    {activeColumn ? (
+                        <SortableColumn column={activeColumn}>
+                            <div className="space-y-3">
+                                {activeColumn.tasks?.map(task => (
+                                    <TaskCardContent
+                                        key={task.id}
+                                        task={task}
+                                        projectPrefix={project.prefix}
+                                        getPriorityBadge={getPriorityBadge}
+                                    />
+                                ))}
+                            </div>
+                        </SortableColumn>
+                    ) : activeTask ? (
+                        <TaskCardContent
+                            task={activeTask}
+                            projectPrefix={project.prefix}
+                            getPriorityBadge={getPriorityBadge}
+                            isHighlighted={true}
+                        />
+                    ) : null}
+                </DragOverlay>
+            </DndContext>
+
             {/* Task Detail Panel */}
             {
                 selectedTask && project && (

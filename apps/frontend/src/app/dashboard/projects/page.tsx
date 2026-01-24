@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { projectService, Project } from '@/lib/services/project.service';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function ProjectsPage() {
+    const { user } = useAuth();
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -42,7 +44,7 @@ export default function ProjectsPage() {
 
     useEffect(() => {
         loadProjects();
-    }, []);
+    }, [user?.avatarUrl]);
 
     const loadProjects = async () => {
         try {
@@ -243,12 +245,12 @@ export default function ProjectsPage() {
                                         </p>
                                         <div className="flex items-center justify-between">
                                             <div className="flex -space-x-2">
-                                                {[1, 2, 3].slice(0, Math.min(3, project._count?.members || 1)).map((_, i) => (
-                                                    <Avatar key={i} className="w-8 h-8 border-2 border-background">
+                                                {project.members?.slice(0, 3).map((member) => (
+                                                    <Avatar key={member.id} className="w-8 h-8 border-2 border-background">
                                                         <AvatarImage
-                                                            src={`https://api.dicebear.com/9.x/big-ears/svg?seed=${project.id}-${i}`}
+                                                            src={member.user?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${member.userId}`}
                                                         />
-                                                        <AvatarFallback>M</AvatarFallback>
+                                                        <AvatarFallback>{member.user?.fullName?.charAt(0)}</AvatarFallback>
                                                     </Avatar>
                                                 ))}
                                                 {(project._count?.members || 1) > 3 && (

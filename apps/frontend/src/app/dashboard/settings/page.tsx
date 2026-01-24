@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { authService } from '@/lib/services/auth.service';
+import { attachmentService } from '@/lib/services/attachment.service';
+import { API_URL } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -72,6 +74,53 @@ export default function SettingsPage() {
             toast.error('Không thể cập nhật hồ sơ');
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!user || !e.target.files || e.target.files.length === 0) return;
+
+        const file = e.target.files[0];
+        // Validate file type/size if needed (e.g. only images, max 5MB)
+        if (!file.type.startsWith('image/')) {
+            toast.error('Vui lòng chọn file ảnh');
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            toast.info('Đang tải ảnh lên...');
+            // Upload using attachment service logic
+            const attachment = await attachmentService.upload(file);
+
+            // Construct full URL or relative path depending on backend expectation.
+            // User entity avatarUrl usually expects full URL if it serves from external, or relative path.
+            // But frontend rendering check `user.avatarUrl || dicebear`. 
+            // In TaskDetailPanel: `src={${API_URL}${attr.fileUrl}}`.
+            // So fileUrl is relative.
+            // Let's verify how User avatarUrl is rendered elsewhere. In SideBar/Header?
+            // Usually we store whatever backend returns.
+            // If attachment.fileUrl is "/uploads/file.png", 
+            // We should store "/uploads/file.png" if our UI handles prepending API_URL?
+            // OR store full URL ${API_URL}/uploads/file.png.
+            // Let's store full URL to be safe for global usage (like email templates etc) OR relative if we consistently use API_URL prefix.
+            // Checking Sidebar/Header implementation would be best. But safe bet: store relative path if inconsistent, and handle prefix in UI.
+            // Wait, in this Settings Page line 175: `src={user?.avatarUrl || ...`. It does NOT prepend API_URL.
+            // So `user.avatarUrl` MUST be a FULL URL (or handled by Avatar component? No default AvatarImage src).
+            // So we should store FULL URL.
+
+            const fullAvatarUrl = `${API_URL}${attachment.fileUrl}`;
+
+            await authService.updateProfile(user.id, { avatarUrl: fullAvatarUrl });
+            await refreshUser();
+            toast.success('Đã cập nhật ảnh đại diện');
+        } catch (error) {
+            console.error('Avatar upload error:', error);
+            toast.error('Không thể tải ảnh lên');
+        } finally {
+            setIsSaving(false);
+            // Reset input
+            e.target.value = '';
         }
     };
 
@@ -178,9 +227,18 @@ export default function SettingsPage() {
                                 <Button
                                     size="icon"
                                     className="absolute bottom-0 right-0 w-8 h-8 rounded-full"
+                                    onClick={() => document.getElementById('avatar-upload')?.click()}
+                                    disabled={isSaving}
                                 >
                                     <Camera className="w-4 h-4" />
                                 </Button>
+                                <input
+                                    id="avatar-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleAvatarUpload}
+                                />
                             </div>
                             <div>
                                 <h3 className="text-lg font-semibold text-foreground">{user?.fullName}</h3>

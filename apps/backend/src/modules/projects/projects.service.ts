@@ -106,6 +106,14 @@ export class ProjectsService {
                         _count: {
                             select: { members: true },
                         },
+                        members: {
+                            take: 5,
+                            include: {
+                                user: {
+                                    select: { id: true, fullName: true, avatarUrl: true },
+                                },
+                            },
+                        },
                     },
                 },
             },
