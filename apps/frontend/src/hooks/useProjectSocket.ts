@@ -12,6 +12,7 @@ interface ProjectSocketEvents {
     column_deleted: { columnId: string };
     member_added: { member: Record<string, unknown> };
     member_removed: { userId: string };
+    member_updated: { member: Record<string, unknown> };
 }
 
 /**
@@ -51,6 +52,7 @@ export function useProjectSocket(
             'column_deleted',
             'member_added',
             'member_removed',
+            'member_updated',
         ];
 
         events.forEach(event => {

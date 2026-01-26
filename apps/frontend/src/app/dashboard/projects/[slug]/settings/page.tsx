@@ -349,7 +349,6 @@ export default function ProjectSettingsPage() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="MEMBER">Thành viên</SelectItem>
-                                            <SelectItem value="ADMIN">Quản trị</SelectItem>
                                             <SelectItem value="VIEWER">Xem</SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -404,7 +403,6 @@ export default function ProjectSettingsPage() {
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             <SelectItem value="MEMBER">Thành viên</SelectItem>
-                                                            <SelectItem value="ADMIN">Quản trị</SelectItem>
                                                             <SelectItem value="VIEWER">Xem</SelectItem>
                                                         </SelectContent>
                                                     </Select>

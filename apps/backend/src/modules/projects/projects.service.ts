@@ -25,12 +25,14 @@ const DEFAULT_COLUMNS = [
 ];
 
 import { MailService } from '../mail/mail.service';
+import { EventsGateway } from '../../gateway/events.gateway';
 
 @Injectable()
 export class ProjectsService {
     constructor(
         private prisma: PrismaService,
         private mailService: MailService,
+        private eventsGateway: EventsGateway,
     ) { }
 
     // ==========================================
@@ -274,6 +276,9 @@ export class ProjectsService {
             ).catch(err => console.error('Failed to send invite email:', err));
         }
 
+        // Emit socket event
+        this.eventsGateway.emitMemberAdded(projectId, membership);
+
         return membership;
     }
 
@@ -306,7 +311,7 @@ export class ProjectsService {
             throw new ForbiddenException('Không thể chuyển thành Owner');
         }
 
-        return this.prisma.projectMember.update({
+        const updatedMember = await this.prisma.projectMember.update({
             where: { id: memberId },
             data: { role: dto.role },
             include: {
@@ -315,6 +320,14 @@ export class ProjectsService {
                 },
             },
         });
+
+        // Emit socket event
+        this.eventsGateway.broadcastToProject(projectId, 'member_updated', {
+            member: updatedMember,
+            updatedBy: { id: userId }, // Sending basic info is likely enough
+        });
+
+        return updatedMember;
     }
 
     /**
@@ -340,9 +353,15 @@ export class ProjectsService {
             throw new ForbiddenException('Không thể xóa Owner khỏi project');
         }
 
-        return this.prisma.projectMember.delete({
+        const deletedMember = await this.prisma.projectMember.delete({
             where: { id: memberId },
         });
+
+        // Emit socket event
+        const remover = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, fullName: true } });
+        this.eventsGateway.emitMemberRemoved(projectId, deletedMember.userId, remover || { id: userId, fullName: 'Unknown' });
+
+        return deletedMember;
     }
 
 
@@ -368,7 +387,7 @@ export class ProjectsService {
 
         const position = lastColumn ? lastColumn.position + 1 : 0;
 
-        return this.prisma.column.create({
+        const column = await this.prisma.column.create({
             data: {
                 projectId,
                 name: dto.name,
@@ -376,6 +395,11 @@ export class ProjectsService {
                 position,
             },
         });
+
+        // Emit socket event
+        this.eventsGateway.emitColumnCreated(projectId, column as unknown as Record<string, unknown>);
+
+        return column;
     }
 
     /**
@@ -401,10 +425,15 @@ export class ProjectsService {
             throw new NotFoundException('Column không tồn tại');
         }
 
-        return this.prisma.column.update({
+        const updatedColumn = await this.prisma.column.update({
             where: { id: columnId },
             data: dto,
         });
+
+        // Emit socket event
+        this.eventsGateway.emitColumnUpdated(projectId, updatedColumn as unknown as Record<string, unknown>);
+
+        return updatedColumn;
     }
 
     /**
@@ -421,9 +450,14 @@ export class ProjectsService {
             throw new NotFoundException('Column không tồn tại');
         }
 
-        return this.prisma.column.delete({
+        const deleted = await this.prisma.column.delete({
             where: { id: columnId },
         });
+
+        // Emit socket event
+        this.eventsGateway.emitColumnDeleted(projectId, columnId);
+
+        return deleted;
     }
 
     /**
@@ -445,6 +479,9 @@ export class ProjectsService {
         );
 
         await this.prisma.$transaction(updates);
+
+        // Emit socket event
+        this.eventsGateway.emitColumnsReordered(projectId, dto.columnIds);
 
         return { success: true };
     }

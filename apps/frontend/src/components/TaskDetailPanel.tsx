@@ -11,7 +11,7 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 
-import { projectService, taskService, Task, Project, Label, Subtask } from '@/lib/services/project.service';
+import { projectService, taskService, subtaskService, Task, Project, Label, Subtask } from '@/lib/services/project.service';
 import { commentService, Comment } from '@/lib/services/comment.service';
 import { attachmentService, Attachment } from '@/lib/services/attachment.service';
 import { useAuth } from '@/contexts/AuthContext';
@@ -118,7 +118,8 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
         dueDate: task.dueDate ? task.dueDate.split('T')[0] : '',
     });
 
-    const [subtasks, setSubtasks] = useState<Subtask[]>(task.subtasks || []);
+    const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+    const [isLoadingSubtasks, setIsLoadingSubtasks] = useState(false);
     const [taskLabels, setTaskLabels] = useState<Label[]>(
         task.taskLabels?.map(tl => tl.label) || []
     );
@@ -152,9 +153,31 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
             assigneeIds: task.assignees?.map(a => a.id) || [],
             dueDate: task.dueDate ? task.dueDate.split('T')[0] : '',
         });
-        setSubtasks(task.subtasks || []);
+        setSubtasks([]);
         setTaskLabels(task.taskLabels?.map(tl => tl.label) || []);
     }, [task]);
+
+    // Load subtasks from API
+    const loadSubtasks = useCallback(async () => {
+        if (!task.id) return;
+        setIsLoadingSubtasks(true);
+        try {
+            const data = await subtaskService.getByTask(task.id);
+            if (isMounted.current) {
+                setSubtasks(data);
+            }
+        } catch (error) {
+            console.error('Failed to load subtasks:', error);
+        } finally {
+            if (isMounted.current) {
+                setIsLoadingSubtasks(false);
+            }
+        }
+    }, [task.id]);
+
+    useEffect(() => {
+        loadSubtasks();
+    }, [loadSubtasks]);
 
     const loadComments = useCallback(async () => {
         if (!task.id) return;
@@ -370,31 +393,38 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
     const handleAddSubtask = async () => {
         if (!newSubtask.trim()) return;
         try {
-            // TODO: Call API when backend is ready
-            const newItem: Subtask = {
-                id: Date.now().toString(),
-                title: newSubtask,
-                completed: false,
-                position: subtasks.length,
-            };
-            setSubtasks([...subtasks, newItem]);
+            const created = await subtaskService.create(task.id, newSubtask.trim());
+            setSubtasks([...subtasks, created]);
             setNewSubtask('');
             setShowAddSubtask(false);
             toast.success('Đã thêm subtask');
         } catch (error) {
+            console.error('Failed to add subtask:', error);
             toast.error('Không thể thêm subtask');
         }
     };
 
     const handleToggleSubtask = async (subtaskId: string) => {
-        setSubtasks(subtasks.map(st =>
-            st.id === subtaskId ? { ...st, completed: !st.completed } : st
-        ));
+        try {
+            const updated = await subtaskService.toggle(task.id, subtaskId);
+            setSubtasks(subtasks.map(st =>
+                st.id === subtaskId ? updated : st
+            ));
+        } catch (error) {
+            console.error('Failed to toggle subtask:', error);
+            toast.error('Không thể cập nhật subtask');
+        }
     };
 
     const handleDeleteSubtask = async (subtaskId: string) => {
-        setSubtasks(subtasks.filter(st => st.id !== subtaskId));
-        toast.success('Đã xóa subtask');
+        try {
+            await subtaskService.delete(task.id, subtaskId);
+            setSubtasks(subtasks.filter(st => st.id !== subtaskId));
+            toast.success('Đã xóa subtask');
+        } catch (error) {
+            console.error('Failed to delete subtask:', error);
+            toast.error('Không thể xóa subtask');
+        }
     };
 
     const getPriorityBadge = (priority: string): { variant: 'default' | 'success' | 'warning' | 'destructive'; label: string } => {
@@ -407,7 +437,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
         return badges[priority as keyof typeof badges] || badges.MEDIUM;
     };
 
-    const completedSubtasks = subtasks.filter(st => st.completed).length;
+    const completedSubtasks = subtasks.filter(st => st.isCompleted).length;
     const subtaskProgress = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0;
     return (
         <div
@@ -500,7 +530,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                         updateTaskField('columnId', value);
                                     }}
                                 >
-                                    <SelectTrigger className="h-9 border-none bg-accent/40 hover:bg-accent/60 transition-colors">
+                                    <SelectTrigger className="h-9 border-none bg-accent/40 hover:bg-accent/60 transition-colors min-w-[120px]">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -531,7 +561,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                     }}
                                 >
                                     <SelectTrigger className={cn(
-                                        "h-9 border-none transition-colors",
+                                        "h-9 border-none transition-colors min-w-[120px]",
                                         formData.priority === 'LOW' && "bg-success/10 text-success hover:bg-success/20",
                                         formData.priority === 'MEDIUM' && "bg-warning/10 text-warning hover:bg-warning/20",
                                         formData.priority === 'HIGH' && "bg-destructive/10 text-destructive hover:bg-destructive/20",
@@ -561,9 +591,9 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" className="h-9 w-full justify-start border-none bg-accent/40 hover:bg-accent/60 transition-colors px-3 font-normal">
                                             {formData.assigneeIds && formData.assigneeIds.length > 0 ? (
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex -space-x-2">
-                                                        {formData.assigneeIds.map(id => {
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div className="flex -space-x-2 shrink-0">
+                                                        {formData.assigneeIds.slice(0, 2).map(id => {
                                                             const member = project.members?.find(m => m.userId === id);
                                                             return (
                                                                 <Avatar key={id} className="w-5 h-5 border-2 border-background ring-1 ring-border">
@@ -572,9 +602,20 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                                                 </Avatar>
                                                             );
                                                         })}
+                                                        {formData.assigneeIds.length > 2 && (
+                                                            <div className="w-5 h-5 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[9px] font-medium">
+                                                                +{formData.assigneeIds.length - 2}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <span className="text-sm">
-                                                        {formData.assigneeIds.length} người
+                                                    <span className="text-sm truncate">
+                                                        {(() => {
+                                                            if (formData.assigneeIds.length === 1) {
+                                                                const member = project.members?.find(m => m.userId === formData.assigneeIds[0]);
+                                                                return member?.user?.fullName || 'Unknown';
+                                                            }
+                                                            return `${formData.assigneeIds.length} người`;
+                                                        })()}
                                                     </span>
                                                 </div>
                                             ) : (
@@ -613,7 +654,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                             <div className="space-y-2">
                                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                                     <Calendar className="w-3 h-3" />
-                                    Hạn chót
+                                    Ngày hết hạn
                                 </label>
                                 <Input
                                     type="date"
@@ -639,9 +680,24 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                         key={label.id}
                                         style={{ backgroundColor: label.color + '20', color: label.color, borderColor: label.color }}
                                         variant="outline"
-                                        className="px-2 py-0 h-6 text-xs"
+                                        className="px-2 py-0 h-6 text-xs flex items-center gap-1"
                                     >
                                         {label.name}
+                                        <button
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                try {
+                                                    await taskService.removeLabel(task.id, label.id);
+                                                    setTaskLabels(prev => prev.filter(l => l.id !== label.id));
+                                                    onUpdate();
+                                                } catch (error) {
+                                                    toast.error('Không thể gỡ nhãn');
+                                                }
+                                            }}
+                                            className="ml-1 hover:bg-black/10 rounded-full p-0.5"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
                                     </Badge>
                                 ))}
 
@@ -822,7 +878,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                     className="text-sm text-foreground whitespace-pre-wrap hover:bg-accent/30 p-3 rounded-xl cursor-pointer min-h-[100px] transition-colors bg-accent/10"
                                     onClick={() => setEditingDescription(true)}
                                 >
-                                    {task.description || <span className="text-muted-foreground italic">Nhấn để thêm mô tả...</span>}
+                                    {formData.description || <span className="text-muted-foreground italic">Nhấn để thêm mô tả...</span>}
                                 </div>
                             )}
                         </div>
@@ -860,24 +916,28 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                 {subtasks.map((subtask) => (
                                     <div
                                         key={subtask.id}
-                                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/30 group transition-colors"
+                                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/30 transition-colors"
+                                        onClick={(e) => e.stopPropagation()}
                                     >
                                         <Checkbox
-                                            checked={subtask.completed}
+                                            checked={subtask.isCompleted}
                                             onCheckedChange={() => handleToggleSubtask(subtask.id)}
                                             className="w-4 h-4"
                                         />
                                         <span className={cn(
                                             "flex-1 text-sm transition-all",
-                                            subtask.completed && "line-through text-muted-foreground opacity-70"
+                                            subtask.isCompleted && "line-through text-muted-foreground opacity-70"
                                         )}>
                                             {subtask.title}
                                         </span>
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={() => handleDeleteSubtask(subtask.id)}
+                                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteSubtask(subtask.id);
+                                            }}
                                         >
                                             <X className="w-3 h-3" />
                                         </Button>
@@ -1034,32 +1094,44 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                             <div className="p-2 border-b bg-muted/30">
                                                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Nhắc đến thành viên</span>
                                             </div>
-                                            <div className="max-h-48 overflow-y-auto">
-                                                {project.members?.filter(m =>
-                                                    m.user?.fullName?.toLowerCase().includes(mentionSearch.toLowerCase()) ||
-                                                    m.user?.email?.toLowerCase().includes(mentionSearch.toLowerCase())
-                                                ).map(member => (
-                                                    <button
-                                                        key={member.id}
-                                                        className="w-full flex items-center gap-2 p-2 hover:bg-accent transition-colors text-left"
-                                                        onClick={() => insertMention(member)}
-                                                    >
-                                                        <Avatar className="w-6 h-6">
-                                                            <AvatarImage src={member.user?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${member.userId}`} />
-                                                            <AvatarFallback>{member.user?.fullName?.charAt(0)}</AvatarFallback>
-                                                        </Avatar>
-                                                        <div className="flex flex-col min-w-0">
-                                                            <span className="text-sm font-medium truncate">{member.user?.fullName}</span>
-                                                            <span className="text-[10px] text-muted-foreground truncate">{member.user?.email}</span>
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                                {project.members?.filter(m =>
-                                                    m.user?.fullName?.toLowerCase().includes(mentionSearch.toLowerCase()) ||
-                                                    m.user?.email?.toLowerCase().includes(mentionSearch.toLowerCase())
-                                                ).length === 0 && (
-                                                        <div className="p-4 text-center text-xs text-muted-foreground italic">Không tìm thấy thành viên</div>
-                                                    )}
+                                            <div className="max-h-60 overflow-y-auto">
+                                                {(() => {
+                                                    const filteredMembers = project.members?.filter(m =>
+                                                        m.user?.fullName?.toLowerCase().includes(mentionSearch.toLowerCase()) ||
+                                                        m.user?.email?.toLowerCase().includes(mentionSearch.toLowerCase())
+                                                    ) || [];
+                                                    const displayMembers = filteredMembers.slice(0, 5);
+                                                    const remaining = filteredMembers.length - 5;
+
+                                                    return (
+                                                        <>
+                                                            {displayMembers.map(member => (
+                                                                <button
+                                                                    key={member.id}
+                                                                    className="w-full flex items-center gap-2 p-2 hover:bg-accent transition-colors text-left"
+                                                                    onClick={() => insertMention(member)}
+                                                                >
+                                                                    <Avatar className="w-6 h-6">
+                                                                        <AvatarImage src={member.user?.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${member.userId}`} />
+                                                                        <AvatarFallback>{member.user?.fullName?.charAt(0)}</AvatarFallback>
+                                                                    </Avatar>
+                                                                    <div className="flex flex-col min-w-0">
+                                                                        <span className="text-sm font-medium truncate">{member.user?.fullName}</span>
+                                                                        <span className="text-[10px] text-muted-foreground truncate">{member.user?.email}</span>
+                                                                    </div>
+                                                                </button>
+                                                            ))}
+                                                            {remaining > 0 && (
+                                                                <div className="p-2 text-center text-xs text-muted-foreground border-t">
+                                                                    Gõ thêm để tìm {remaining} người khác...
+                                                                </div>
+                                                            )}
+                                                            {filteredMembers.length === 0 && (
+                                                                <div className="p-4 text-center text-xs text-muted-foreground italic">Không tìm thấy thành viên</div>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     )}
@@ -1067,7 +1139,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                         value={newComment}
                                         onChange={handleCommentChange}
                                         onPaste={handlePaste}
-                                        placeholder="Thêm bình luận hoặc dán ảnh..."
+                                        placeholder="Thêm bình luận..."
                                         className="pr-10 focus-visible:ring-1"
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' && !e.shiftKey && !showMentions) {

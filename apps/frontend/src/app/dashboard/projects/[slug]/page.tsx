@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { projectService, taskService, Project, Task, Column } from '@/lib/services/project.service';
@@ -141,6 +141,7 @@ function TaskCardContent({
     onToggleLabel,
     isHighlighted,
     projectPrefix = 'TASK',
+    isViewer,
 }: {
     task: Task & { taskLabels?: { label: any }[] };
     getPriorityBadge: (priority: string) => { class: string; label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' };
@@ -152,6 +153,7 @@ function TaskCardContent({
     onToggleLabel?: (labelId: string) => void;
     isHighlighted?: boolean;
     projectPrefix?: string;
+    isViewer?: boolean;
 }) {
     const badge = getPriorityBadge(task.priority);
     const currentColumn = columns?.find(c => c.id === task.columnId);
@@ -201,15 +203,14 @@ function TaskCardContent({
 
 
                 {/* Quick Actions Row */}
-                <div className="flex items-center justify-between gap-1.5 min-w-0">
-                    {/* Left: Status & Priority */}
-                    <div className="flex items-center gap-1 overflow-hidden min-w-0 flex-1">
-                        {columns && onStatusChange ? (
+                <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1">
+                        {columns && onStatusChange && !isViewer ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                    <button className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded-md transition-colors hover:opacity-80 min-w-0 shrink ${getStatusColor(currentColumn?.name)}`}>
+                                    <button className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded-md transition-colors hover:opacity-80 whitespace-nowrap ${getStatusColor(currentColumn?.name)}`}>
                                         {currentColumn ? getColumnIcon(currentColumn.name) : <Circle className="w-2 h-2 fill-current" />}
-                                        <span className="truncate">{currentColumn ? stripEmoji(currentColumn.name) : 'Status'}</span>
+                                        <span>{currentColumn ? stripEmoji(currentColumn.name) : 'Status'}</span>
                                         <ChevronDown className="w-2.5 h-2.5 opacity-60 shrink-0" />
                                     </button>
                                 </DropdownMenuTrigger>
@@ -237,10 +238,15 @@ function TaskCardContent({
                                     ))}
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                        ) : null}
+                        ) : (
+                            <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded-md whitespace-nowrap ${getStatusColor(currentColumn?.name)}`}>
+                                {currentColumn ? getColumnIcon(currentColumn.name) : <Circle className="w-2 h-2 fill-current" />}
+                                <span>{currentColumn ? stripEmoji(currentColumn.name) : 'Status'}</span>
+                            </div>
+                        )}
 
                         {/* Priority Badge right next to status */}
-                        <Badge variant={badge.variant} className="text-[9px] px-1 py-0 h-4.5 min-w-0 shrink truncate">
+                        <Badge variant={badge.variant} className="text-[9px] px-1.5 py-0 h-4.5 whitespace-nowrap">
                             {badge.label}
                         </Badge>
                     </div>
@@ -248,100 +254,102 @@ function TaskCardContent({
                     {/* Right: Quick Action Icons + Assignees */}
                     <div className="flex items-center gap-1 shrink-0">
                         {/* Quick Action Icons - visible on hover */}
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onQuickAction?.('comment');
-                                }}
-                                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                title="Bình luận"
-                            >
-                                <MessageSquare className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Quick Date Edit */}
-                            <div className="relative">
+                        {!isViewer && (
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        const input = e.currentTarget.nextElementSibling as HTMLInputElement;
-                                        if (input) {
-                                            try {
-                                                if ('showPicker' in input) {
-                                                    (input as any).showPicker();
-                                                } else {
-                                                    (input as any).click();
-                                                }
-                                            } catch (err) {
-                                                input.click();
-                                            }
-                                        }
+                                        onQuickAction?.('comment');
                                     }}
-                                    className={`p-1 rounded hover:bg-muted transition-colors flex items-center gap-0.5 ${task.dueDate ? 'text-indigo-600 bg-indigo-50' : 'text-muted-foreground'}`}
-                                    title={task.dueDate ? `Hạn: ${new Date(task.dueDate).toLocaleDateString()}` : "Thêm ngày"}
+                                    className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                    title="Bình luận"
                                 >
-                                    <Calendar className="w-3 h-3" />
-                                    {task.dueDate && (
-                                        <span className="text-[9px] font-medium leading-none">
-                                            {new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
-                                        </span>
-                                    )}
+                                    <MessageSquare className="w-3.5 h-3.5" />
                                 </button>
-                                <input
-                                    type="date"
-                                    className="absolute inset-0 opacity-0 w-0 h-0 pointer-events-none"
-                                    value={task.dueDate ? task.dueDate.split('T')[0] : ''}
-                                    onChange={(e) => {
-                                        e.stopPropagation();
-                                        if (e.target.value !== undefined) {
-                                            onDateChange?.(e.target.value);
-                                        }
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                />
-                            </div>
 
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                {/* Quick Date Edit */}
+                                <div className="relative">
                                     <button
-                                        className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                        title="Quản lý nhãn"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const input = e.currentTarget.nextElementSibling as HTMLInputElement;
+                                            if (input) {
+                                                try {
+                                                    if ('showPicker' in input) {
+                                                        (input as any).showPicker();
+                                                    } else {
+                                                        (input as any).click();
+                                                    }
+                                                } catch (err) {
+                                                    input.click();
+                                                }
+                                            }
+                                        }}
+                                        className={`p-1 rounded hover:bg-muted transition-colors flex items-center gap-0.5 ${task.dueDate ? 'text-indigo-600 bg-indigo-50' : 'text-muted-foreground'}`}
+                                        title={task.dueDate ? `Hạn: ${new Date(task.dueDate).toLocaleDateString()}` : "Thêm ngày"}
                                     >
-                                        <Tag className="w-3.5 h-3.5" />
+                                        <Calendar className="w-3 h-3" />
+                                        {task.dueDate && (
+                                            <span className="text-[9px] font-medium leading-none">
+                                                {new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                                            </span>
+                                        )}
                                     </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-48">
-                                    <DropdownMenuLabel className="text-xs">Nhãn công việc</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    {projectLabels && projectLabels.length > 0 ? (
-                                        projectLabels.map((label) => {
-                                            const isChecked = taskLabels.some(tl => tl.id === label.id);
-                                            return (
-                                                <DropdownMenuCheckboxItem
-                                                    key={label.id}
-                                                    checked={isChecked}
-                                                    onCheckedChange={() => onToggleLabel?.(label.id)}
-                                                    className="text-xs"
-                                                >
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-2 h-2 rounded-full"
-                                                            style={{ backgroundColor: label.color }}
-                                                        />
-                                                        {label.name}
-                                                    </div>
-                                                </DropdownMenuCheckboxItem>
-                                            );
-                                        })
-                                    ) : (
-                                        <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
-                                            Chưa có nhãn dự án
-                                        </div>
-                                    )}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
+                                    <input
+                                        type="date"
+                                        className="absolute inset-0 opacity-0 w-0 h-0 pointer-events-none"
+                                        value={task.dueDate ? task.dueDate.split('T')[0] : ''}
+                                        onChange={(e) => {
+                                            e.stopPropagation();
+                                            if (e.target.value !== undefined) {
+                                                onDateChange?.(e.target.value);
+                                            }
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                    />
+                                </div>
+
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                        <button
+                                            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                            title="Quản lý nhãn"
+                                        >
+                                            <Tag className="w-3.5 h-3.5" />
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                        <DropdownMenuLabel className="text-xs">Nhãn công việc</DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        {projectLabels && projectLabels.length > 0 ? (
+                                            projectLabels.map((label) => {
+                                                const isChecked = taskLabels.some(tl => tl.id === label.id);
+                                                return (
+                                                    <DropdownMenuCheckboxItem
+                                                        key={label.id}
+                                                        checked={isChecked}
+                                                        onCheckedChange={() => onToggleLabel?.(label.id)}
+                                                        className="text-xs"
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <div
+                                                                className="w-2 h-2 rounded-full"
+                                                                style={{ backgroundColor: label.color }}
+                                                            />
+                                                            {label.name}
+                                                        </div>
+                                                    </DropdownMenuCheckboxItem>
+                                                );
+                                            })
+                                        ) : (
+                                            <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
+                                                Chưa có nhãn dự án
+                                            </div>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        )}
 
                         {/* Assignees */}
                         {task.assignees && task.assignees.length > 0 && (
@@ -367,8 +375,8 @@ function TaskCardContent({
                     </div>
                 </div>
 
-            </CardContent>
-        </Card>
+            </CardContent >
+        </Card >
     );
 }
 
@@ -386,6 +394,7 @@ function SortableTaskCard({
     onToggleLabel,
     highlightedTaskId,
     projectPrefix,
+    isViewer,
 }: {
     task: Task;
     onClick: () => void;
@@ -398,6 +407,7 @@ function SortableTaskCard({
     onToggleLabel?: (taskId: string, labelId: string) => void;
     highlightedTaskId?: string | null;
     projectPrefix?: string;
+    isViewer?: boolean;
 }) {
 
     const {
@@ -410,6 +420,7 @@ function SortableTaskCard({
     } = useSortable({
         id: task.id,
         data: { type: 'task', task },
+        disabled: isViewer,
     });
 
     const style = {
@@ -444,6 +455,7 @@ function SortableTaskCard({
                     onDateChange={onDateChange ? (date) => onDateChange(task.id, date) : undefined}
                     onToggleLabel={onToggleLabel ? (labelId) => onToggleLabel(task.id, labelId) : undefined}
                     isHighlighted={task.id === highlightedTaskId}
+                    isViewer={isViewer}
                 />
 
             </div>
@@ -463,6 +475,8 @@ function DroppableColumn({
     setNewTaskTitle,
     setShowAddTask,
     handleAddTask,
+    isViewer,
+    canDeleteColumn,
 }: {
     column: Column;
     children: React.ReactNode;
@@ -473,16 +487,19 @@ function DroppableColumn({
     setNewTaskTitle: (value: string) => void;
     setShowAddTask: (value: string | null) => void;
     handleAddTask: (columnId: string) => void;
+    isViewer?: boolean;
+    canDeleteColumn?: boolean;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
         data: { type: 'column', column },
+        disabled: isViewer,
     });
 
     return (
         <div
             ref={setNodeRef}
-            className={`flex-shrink-0 w-[270px] flex flex-col rounded-xl transition-colors ${isOver ? 'bg-primary/10 ring-2 ring-primary/30' : 'bg-muted/50'
+            className={`flex-shrink-0 w-[300px] flex flex-col rounded-xl transition-colors ${isOver ? 'bg-primary/10 ring-2 ring-primary/30' : 'bg-muted/50'
                 }`}
         >
             {/* Column Header */}
@@ -501,27 +518,31 @@ function DroppableColumn({
                 </div>
 
                 <div className="flex items-center gap-1">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={onAddTask}
-                        className="h-8 w-8"
-                    >
-                        <Plus className="w-4 h-4" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={onDeleteColumn}
-                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {!isViewer && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onAddTask}
+                            className="h-8 w-8"
+                        >
+                            <Plus className="w-4 h-4" />
+                        </Button>
+                    )}
+                    {!isViewer && canDeleteColumn && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onDeleteColumn}
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </Button>
+                    )}
                 </div>
             </div>
 
             {/* Tasks Area */}
-            <div className="flex-1 px-3 pb-3 space-y-3 overflow-y-auto scrollbar-thin min-h-[100px]">
+            <div className="flex-1 px-3 pb-3 space-y-4 overflow-y-auto scrollbar-thin min-h-[100px]">
                 {/* Add Task Form */}
                 {showAddTask && (
                     <Card className="p-4">
@@ -630,12 +651,14 @@ export default function ProjectDetailPage() {
     const { user } = useAuth();
     const currentUserRole = project?.members?.find(m => m.userId === user?.id)?.role;
     const canInviteAdmin = currentUserRole === 'ADMIN' || currentUserRole === 'OWNER';
+    const isViewer = currentUserRole === 'VIEWER';
 
 
 
     const searchParams = useSearchParams();
     const taskIdInUrl = searchParams.get('taskId');
     const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(taskIdInUrl);
+    const manuallyClosedRef = useRef(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -645,6 +668,10 @@ export default function ProjectDetailPage() {
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
+
+
+    // Disable drag and drop for viewers via 'disabled' prop in Draggable/Sortable items
+    // const dndSensors = isViewer ? [] : sensors; // This caused errors
 
     const loadProject = useCallback(async () => {
         try {
@@ -664,6 +691,9 @@ export default function ProjectDetailPage() {
 
     // Handle initial task selection from URL
     useEffect(() => {
+        // Skip if user manually closed the panel
+        if (manuallyClosedRef.current) return;
+
         if (project && taskIdInUrl && !selectedTask) {
             const task = findTaskById(taskIdInUrl);
             if (task) {
@@ -1101,6 +1131,7 @@ export default function ProjectDetailPage() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="MEMBER">Thành viên</SelectItem>
+                                            <SelectItem value="VIEWER">Người xem</SelectItem>
                                             {canInviteAdmin && (
                                                 <SelectItem value="ADMIN">Quản trị viên</SelectItem>
                                             )}
@@ -1158,87 +1189,94 @@ export default function ProjectDetailPage() {
                                     setNewTaskTitle={setNewTaskTitle}
                                     setShowAddTask={setShowAddTask}
                                     handleAddTask={handleAddTask}
+                                    isViewer={isViewer}
+                                    canDeleteColumn={canInviteAdmin}
                                 >
-                                    <SortableContext
-                                        items={column.tasks?.map(t => t.id) || []}
-                                        strategy={verticalListSortingStrategy}
-                                    >
-                                        {column.tasks?.map((task) => (
-                                            <SortableTaskCard
-                                                key={task.id}
-                                                task={task}
-                                                projectPrefix={project.prefix}
-                                                onClick={() => {
-                                                    setSelectedTask(task);
-                                                    if (highlightedTaskId === task.id) {
-                                                        setHighlightedTaskId(null);
-                                                        // Remove taskId from URL without full refresh
-                                                        const url = new URL(window.location.href);
-                                                        url.searchParams.delete('taskId');
-                                                        window.history.replaceState({}, '', url.toString());
-                                                    }
-                                                }}
-                                                getPriorityBadge={getPriorityBadge}
-                                                columns={project.columns}
-                                                projectLabels={(project as any).labels}
-                                                onStatusChange={handleQuickStatusChange}
-                                                onQuickAction={handleQuickAction}
-                                                onDateChange={(date) => handleQuickDateChange(task.id, date)}
-                                                onToggleLabel={(labelId: string) => handleToggleLabel(task.id, labelId)}
-                                                highlightedTaskId={highlightedTaskId}
-                                            />
+                                    <div className={cn("flex-1", isViewer && "pointer-events-none")}>
+                                        <SortableContext
+                                            items={column.tasks?.map(t => t.id) || []}
+                                            strategy={verticalListSortingStrategy}
+                                        >
+                                            {column.tasks?.map((task) => (
+                                                <SortableTaskCard
+                                                    key={task.id}
+                                                    task={task}
+                                                    projectPrefix={project.prefix}
+                                                    onClick={() => {
+                                                        setSelectedTask(task);
+                                                        if (highlightedTaskId === task.id) {
+                                                            setHighlightedTaskId(null);
+                                                            // Remove taskId from URL without full refresh
+                                                            const url = new URL(window.location.href);
+                                                            url.searchParams.delete('taskId');
+                                                            window.history.replaceState({}, '', url.toString());
+                                                        }
+                                                    }}
+                                                    getPriorityBadge={getPriorityBadge}
+                                                    columns={project.columns}
+                                                    projectLabels={(project as any).labels}
+                                                    onStatusChange={handleQuickStatusChange}
+                                                    onQuickAction={handleQuickAction}
+                                                    onDateChange={(date) => handleQuickDateChange(task.id, date)}
+                                                    onToggleLabel={(labelId: string) => handleToggleLabel(task.id, labelId)}
+                                                    highlightedTaskId={highlightedTaskId}
+                                                    isViewer={isViewer}
+                                                />
 
 
 
-                                        ))}
+                                            ))}
 
-                                    </SortableContext>
+                                        </SortableContext>
+                                    </div>
                                 </DroppableColumn>
                             ))}
 
 
 
                             {/* Add Column */}
-                            <div className="flex-shrink-0 w-[270px]">
-                                {showAddColumn ? (
-                                    <div className="bg-gray-100 rounded-xl p-4">
-                                        <input
-                                            type="text"
-                                            value={newColumnName}
-                                            onChange={(e) => setNewColumnName(e.target.value)}
-                                            placeholder="Nhập tên cột..."
-                                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
-                                            autoFocus
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') handleAddColumn();
-                                                if (e.key === 'Escape') setShowAddColumn(false);
-                                            }}
-                                        />
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={handleAddColumn}
-                                                className="flex-1 px-3 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600"
-                                            >
-                                                Thêm cột
-                                            </button>
-                                            <button
-                                                onClick={() => setShowAddColumn(false)}
-                                                className="px-3 py-2 text-gray-500 text-sm font-medium hover:bg-gray-200 rounded-lg"
-                                            >
-                                                Hủy
-                                            </button>
+                            {!isViewer && (
+                                <div className="flex-shrink-0 w-[300px]">
+                                    {showAddColumn ? (
+                                        <div className="bg-gray-100 rounded-xl p-4">
+                                            <input
+                                                type="text"
+                                                value={newColumnName}
+                                                onChange={(e) => setNewColumnName(e.target.value)}
+                                                placeholder="Nhập tên cột..."
+                                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
+                                                autoFocus
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleAddColumn();
+                                                    if (e.key === 'Escape') setShowAddColumn(false);
+                                                }}
+                                            />
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={handleAddColumn}
+                                                    className="flex-1 px-3 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600"
+                                                >
+                                                    Thêm cột
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowAddColumn(false)}
+                                                    className="px-3 py-2 text-gray-500 text-sm font-medium hover:bg-gray-200 rounded-lg"
+                                                >
+                                                    Hủy
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                ) : (
-                                    <button
-                                        onClick={() => setShowAddColumn(true)}
-                                        className="w-full h-12 flex items-center justify-center gap-2 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition"
-                                    >
-                                        <Plus className="w-5 h-5" />
-                                        Thêm cột
-                                    </button>
-                                )}
-                            </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => setShowAddColumn(true)}
+                                            className="w-full h-12 flex items-center justify-center gap-2 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition"
+                                        >
+                                            <Plus className="w-5 h-5" />
+                                            Thêm cột
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </SortableContext>
                 </div>
@@ -1254,6 +1292,7 @@ export default function ProjectDetailPage() {
                                         task={task}
                                         projectPrefix={project.prefix}
                                         getPriorityBadge={getPriorityBadge}
+                                        isViewer={isViewer}
                                     />
                                 ))}
                             </div>
@@ -1264,6 +1303,7 @@ export default function ProjectDetailPage() {
                             projectPrefix={project.prefix}
                             getPriorityBadge={getPriorityBadge}
                             isHighlighted={true}
+                            isViewer={isViewer}
                         />
                     ) : null}
                 </DragOverlay>
@@ -1275,7 +1315,15 @@ export default function ProjectDetailPage() {
                     <TaskDetailPanel
                         task={selectedTask}
                         project={project}
-                        onClose={() => setSelectedTask(null)}
+                        onClose={() => {
+                            manuallyClosedRef.current = true;
+                            setSelectedTask(null);
+                            setHighlightedTaskId(null);
+                            // Remove taskId from URL without reload
+                            const url = new URL(window.location.href);
+                            url.searchParams.delete('taskId');
+                            router.replace(url.pathname + url.search, { scroll: false });
+                        }}
                         onUpdate={() => loadProject()}
                     />
                 )

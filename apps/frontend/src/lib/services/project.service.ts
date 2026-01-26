@@ -89,10 +89,44 @@ export interface Task {
 
 export interface Subtask {
     id: string;
+    taskId?: string;
     title: string;
-    completed: boolean;
+    isCompleted: boolean;
     position: number;
+    completedAt?: string | null;
+    createdAt?: string;
 }
+
+export const subtaskService = {
+    async getByTask(taskId: string): Promise<Subtask[]> {
+        const { data } = await api.get<Subtask[]>(`/tasks/${taskId}/subtasks`);
+        return data;
+    },
+
+    async create(taskId: string, title: string): Promise<Subtask> {
+        const { data } = await api.post<Subtask>(`/tasks/${taskId}/subtasks`, { title });
+        return data;
+    },
+
+    async update(taskId: string, subtaskId: string, dto: { title?: string; isCompleted?: boolean }): Promise<Subtask> {
+        const { data } = await api.put<Subtask>(`/tasks/${taskId}/subtasks/${subtaskId}`, dto);
+        return data;
+    },
+
+    async toggle(taskId: string, subtaskId: string): Promise<Subtask> {
+        const { data } = await api.put<Subtask>(`/tasks/${taskId}/subtasks/${subtaskId}/toggle`);
+        return data;
+    },
+
+    async delete(taskId: string, subtaskId: string): Promise<void> {
+        await api.delete(`/tasks/${taskId}/subtasks/${subtaskId}`);
+    },
+
+    async reorder(taskId: string, subtaskIds: string[]): Promise<Subtask[]> {
+        const { data } = await api.put<Subtask[]>(`/tasks/${taskId}/subtasks`, { subtaskIds });
+        return data;
+    },
+};
 
 
 

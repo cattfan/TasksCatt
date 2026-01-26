@@ -56,7 +56,8 @@ const getNavItems = (isAdmin: boolean) => {
         { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
         { href: '/dashboard/projects', label: 'Dự án', icon: FolderKanban },
         { href: '/dashboard/tasks', label: 'Công việc', icon: ClipboardList },
-        { href: '/dashboard/team', label: 'Nhóm', icon: Users },
+        { href: '/dashboard/notifications', label: 'Thông báo', icon: Bell },
+        // { href: '/dashboard/team', label: 'Nhóm', icon: Users }, // Removed as per request
     ];
 };
 

@@ -8,12 +8,14 @@ import { MemberRole } from '@prisma/client';
 import { CreateCommentDto, UpdateCommentDto } from './dto';
 
 import { MailService } from '../mail/mail.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class CommentsService {
     constructor(
         private prisma: PrismaService,
         private mailService: MailService,
+        private notificationsService: NotificationsService,
     ) { }
 
     /**
@@ -21,12 +23,16 @@ export class CommentsService {
      * Role: MEMBER+
      */
     async create(userId: string, dto: CreateCommentDto) {
-        // Verify task exists and get projectId
+        // Verify task exists and get projectId and slug
         const task = await this.prisma.task.findUnique({
             where: { id: dto.taskId, deletedAt: null },
             include: {
                 column: {
-                    select: { projectId: true },
+                    include: {
+                        project: {
+                            select: { id: true, slug: true },
+                        },
+                    },
                 },
             },
         });
@@ -37,7 +43,7 @@ export class CommentsService {
 
         // Check membership (MEMBER+ can comment)
         await this.checkProjectRole(
-            task.column.projectId,
+            task.column.project.id,
             userId,
             [MemberRole.MEMBER, MemberRole.ADMIN, MemberRole.OWNER],
         );
@@ -59,24 +65,35 @@ export class CommentsService {
             },
         });
 
-        // Trigger mentions - simple regex for @mentions or emails
-        const mentionRegex = /@([a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[a-zA-Z0-9_-]+)/g;
-        const matches = dto.content.match(mentionRegex);
+        // Detect mentions by checking project members list
+        // This handles Unicode names with spaces correctly (e.g. "@Lê Thị Hương")
+        const projectMembers = await this.prisma.projectMember.findMany({
+            where: { projectId: task.column.project.id },
+            include: { user: true }
+        });
 
-        if (matches) {
-            const mentions = matches.map(m => m.slice(1)); // remove @
-            const mentionedUsers = await this.prisma.user.findMany({
-                where: {
-                    OR: [
-                        { email: { in: mentions } },
-                        { fullName: { in: mentions } }, // Simple name match
-                    ],
-                    emailNotifications: true, // Only if enabled
-                },
-            });
+        for (const member of projectMembers) {
+            const user = member.user;
+            if (user.id === userId) continue; // Don't notify self
 
-            for (const user of mentionedUsers) {
-                if (user.id !== userId) { // Don't notify self
+            // Check if user is mentioned by Name or Email
+            const mentionName = `@${user.fullName}`;
+            const mentionEmail = `@${user.email}`;
+
+            if (dto.content.includes(mentionName) || dto.content.includes(mentionEmail)) {
+                console.log(`[CommentsService] Mention detected for user: ${user.fullName}`);
+
+                // Send in-app notification
+                this.notificationsService.notifyMention(
+                    user.id,
+                    comment.author.fullName,
+                    comment.task.title,
+                    dto.taskId,
+                    task.column.project.slug,
+                ).catch(err => console.error('Failed to create mention notification:', err));
+
+                // Send email notification if enabled
+                if (user.emailNotifications) {
                     this.mailService.sendMentionEmail(
                         user.email,
                         comment.author.fullName,
