@@ -1,6 +1,7 @@
 /**
- * Seed script to create 10,000 tasks for performance testing
- * Run with: npx ts-node prisma/seed-performance.ts
+ * Seed script to create sample tasks
+ * Run with: npx tsx prisma/seed-performance.ts
+ * Reset first: npx tsx prisma/seed-performance.ts --reset
  */
 
 import { PrismaClient, MemberRole, TaskPriority } from '@prisma/client';
@@ -16,7 +17,43 @@ const SUBTASK_RATIO = 0.2;
 // Password hash for "test123456"
 const PASSWORD_HASH = '$2b$10$7JxzGHPskJ9.xVkq5xQ0/.kqP8Aj5xqVxQzx8qJQ8P5L5qgzJqXGq';
 
+const PROJECT_SLUG = 'performance-test-project';
+
+// Check for --reset flag
+const shouldReset = process.argv.includes('--reset');
+
+async function resetData() {
+    console.log('🗑️ Resetting existing data...');
+
+    const project = await prisma.project.findFirst({
+        where: { slug: PROJECT_SLUG }
+    });
+
+    if (project) {
+        // Delete in correct order (subtasks -> comments -> tasks)
+        await prisma.subtask.deleteMany({
+            where: { task: { column: { projectId: project.id } } }
+        });
+        await prisma.comment.deleteMany({
+            where: { task: { column: { projectId: project.id } } }
+        });
+        await prisma.task.deleteMany({
+            where: { column: { projectId: project.id } }
+        });
+        await prisma.project.update({
+            where: { id: project.id },
+            data: { taskCounter: 0 }
+        });
+        console.log('✅ Deleted all existing tasks');
+    }
+}
+
 async function main() {
+    // Reset if --reset flag is passed
+    if (shouldReset) {
+        await resetData();
+    }
+
     console.log('🚀 Starting performance seed...');
     console.time('Seed completed in');
 
