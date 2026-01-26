@@ -58,7 +58,7 @@ async function main() {
             data: {
                 name: 'Performance Test Project',
                 slug: 'performance-test-project',
-                prefix: 'PERF',
+                prefix: 'TASK',
                 description: 'Project for performance testing with 10k tasks',
                 owner: { connect: { id: owner.id } },
                 members: {

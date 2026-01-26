@@ -176,10 +176,33 @@ function TaskCardContent({
             isHighlighted && "animate-task-highlight border-primary ring-2 ring-primary/20 ring-offset-2"
         )}>
             <CardContent className="p-3">
-                {/* Task ID */}
-                <span className="text-[10px] font-mono text-muted-foreground block mb-1">
-                    {projectPrefix}-{task.taskNumber}
-                </span>
+                {/* Top Row: Task ID + Assignees */}
+                <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                        {projectPrefix}-{task.taskNumber}
+                    </span>
+                    {/* Assignees */}
+                    {task.assignees && task.assignees.length > 0 && (
+                        <div className="flex -space-x-1.5 shrink-0">
+                            {task.assignees.slice(0, 2).map((assignee) => (
+                                <Avatar key={assignee.id} className="w-5 h-5 border-2 border-white">
+                                    <AvatarImage
+                                        src={assignee.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${assignee.id}`}
+                                        alt={assignee.fullName}
+                                    />
+                                    <AvatarFallback className="text-[8px]">
+                                        {assignee.fullName?.charAt(0)}
+                                    </AvatarFallback>
+                                </Avatar>
+                            ))}
+                            {task.assignees.length > 2 && (
+                                <div className="w-5 h-5 rounded-full bg-muted border-2 border-white flex items-center justify-center text-[8px] font-medium text-muted-foreground">
+                                    +{task.assignees.length - 2}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
 
                 {/* Title */}
                 <h4 className="text-sm font-medium text-foreground mb-2 line-clamp-2">
@@ -348,28 +371,6 @@ function TaskCardContent({
                                         )}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
-                            </div>
-                        )}
-
-                        {/* Assignees */}
-                        {task.assignees && task.assignees.length > 0 && (
-                            <div className="flex -space-x-1.5 ml-0.5 shrink-0">
-                                {task.assignees.slice(0, 2).map((assignee, i) => (
-                                    <Avatar key={assignee.id} className="w-5 h-5 border-2 border-white">
-                                        <AvatarImage
-                                            src={assignee.avatarUrl || `https://api.dicebear.com/9.x/big-ears/svg?seed=${assignee.id}`}
-                                            alt={assignee.fullName}
-                                        />
-                                        <AvatarFallback className="text-[8px]">
-                                            {assignee.fullName?.charAt(0)}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                ))}
-                                {task.assignees.length > 2 && (
-                                    <div className="w-5 h-5 rounded-full bg-muted border-2 border-white flex items-center justify-center text-[8px] font-medium text-muted-foreground">
-                                        +{task.assignees.length - 2}
-                                    </div>
-                                )}
                             </div>
                         )}
                     </div>
