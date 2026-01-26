@@ -7,8 +7,8 @@ import { PrismaClient, MemberRole, TaskPriority } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const TASK_COUNT = 10000;
-const BATCH_SIZE = 500;
+const TASK_COUNT = 100;
+const BATCH_SIZE = 50;
 const USER_COUNT = 5;
 const COMMENT_RATIO = 0.3;
 const SUBTASK_RATIO = 0.2;
