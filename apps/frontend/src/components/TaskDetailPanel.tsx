@@ -1139,7 +1139,7 @@ export default function TaskDetailPanel({ task, project, onClose, onUpdate }: Ta
                                         value={newComment}
                                         onChange={handleCommentChange}
                                         onPaste={handlePaste}
-                                        placeholder="Thêm bình luận..."
+                                        placeholder="Gõ @ hoặc thêm bình luận..."
                                         className="pr-10 focus-visible:ring-1"
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' && !e.shiftKey && !showMentions) {
