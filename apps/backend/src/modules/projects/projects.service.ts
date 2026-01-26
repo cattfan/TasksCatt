@@ -26,6 +26,7 @@ const DEFAULT_COLUMNS = [
 
 import { MailService } from '../mail/mail.service';
 import { EventsGateway } from '../../gateway/events.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ProjectsService {
@@ -33,6 +34,7 @@ export class ProjectsService {
         private prisma: PrismaService,
         private mailService: MailService,
         private eventsGateway: EventsGateway,
+        private notificationsService: NotificationsService,
     ) { }
 
     // ==========================================
@@ -261,18 +263,29 @@ export class ProjectsService {
                     select: { id: true, email: true, fullName: true, avatarUrl: true, projectInviteNotifications: true },
                 },
                 project: {
-                    select: { name: true },
+                    select: { name: true, slug: true },
                 },
             },
         });
 
+        // Get inviter info for notifications
+        const inviter = await this.prisma.user.findUnique({ where: { id: userId } });
+        const inviterName = inviter?.fullName || 'Ai đó';
+
+        // Send in-app notification
+        this.notificationsService.notifyProjectInvite(
+            userToAdd.id,
+            membership.project.name,
+            inviterName,
+            membership.project.slug,
+        ).catch(err => console.error('Failed to create project invite notification:', err));
+
         // Send invite email if enabled
         if (membership.user.projectInviteNotifications) {
-            const inviter = await this.prisma.user.findUnique({ where: { id: userId } });
             this.mailService.sendProjectInviteEmail(
                 membership.user.email!,
                 membership.project.name,
-                inviter?.fullName || 'Ai đó'
+                inviterName
             ).catch(err => console.error('Failed to send invite email:', err));
         }
 

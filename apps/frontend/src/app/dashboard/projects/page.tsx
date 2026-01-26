@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { projectService, Project } from '@/lib/services/project.service';
 import { Button } from '@/components/ui/button';
@@ -34,9 +35,12 @@ import { toast } from 'sonner';
 
 export default function ProjectsPage() {
     const { user } = useAuth();
+    const searchParams = useSearchParams();
+    const shouldOpenCreate = searchParams.get('create') === 'true';
+
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(shouldOpenCreate);
     const [newProject, setNewProject] = useState<{ name: string; description: string; slug?: string; prefix?: string }>({ name: '', description: '' });
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState('');

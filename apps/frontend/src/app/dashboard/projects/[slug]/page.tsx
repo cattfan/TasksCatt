@@ -1132,9 +1132,6 @@ export default function ProjectDetailPage() {
                                         <SelectContent>
                                             <SelectItem value="MEMBER">Thành viên</SelectItem>
                                             <SelectItem value="VIEWER">Người xem</SelectItem>
-                                            {canInviteAdmin && (
-                                                <SelectItem value="ADMIN">Quản trị viên</SelectItem>
-                                            )}
                                         </SelectContent>
 
                                     </Select>

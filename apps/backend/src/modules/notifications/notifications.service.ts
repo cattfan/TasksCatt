@@ -144,4 +144,19 @@ export class NotificationsService {
             data: { taskId, projectSlug },
         });
     }
+
+    async notifyProjectInvite(
+        userId: string,
+        projectName: string,
+        invitedBy: string,
+        projectSlug: string,
+    ) {
+        return this.create({
+            userId,
+            type: NotificationType.PROJECT_INVITE,
+            title: 'Lời mời tham gia dự án',
+            message: `${invitedBy} đã mời bạn tham gia dự án "${projectName}"`,
+            data: { projectSlug },
+        });
+    }
 }
